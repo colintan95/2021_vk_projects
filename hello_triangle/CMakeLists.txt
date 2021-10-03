@@ -11,7 +11,7 @@ set(SHADER_SRC
     shader.frag)
 
 function(BuildShaderFiles)   
-  set(GLSL_COMPILER_PATH "/Users/colintan/VulkanSDK/1.2.189.0/macOs/bin/glslangValidator")
+  set(GLSL_COMPILER_PATH "/Users/colintan/VulkanSDK/1.2.189.0/macOs/bin/glslc")
 
   set(SHADER_SPIRV_FILES)
 
@@ -21,7 +21,7 @@ function(BuildShaderFiles)
     string(CONCAT new_path ${new_name} ".spv")
 
     add_custom_command(OUTPUT ${new_path}
-      COMMAND "${GLSL_COMPILER_PATH}" "${file}" -V -o "$<TARGET_FILE_DIR:hello_triangle>/${new_path}"
+      COMMAND "${GLSL_COMPILER_PATH}" "${file}" -o "$<TARGET_FILE_DIR:hello_triangle>/${new_path}"
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
       MAIN_DEPENDENCY ${file}
       COMMENT "Creating ${new_path}")

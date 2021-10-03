@@ -29,6 +29,8 @@ private:
   VkExtent2D swap_chain_extent_;
   std::vector<VkImageView> swap_chain_image_views_;
   VkRenderPass render_pass_;
+  VkPipelineLayout pipeline_layout_;
+  VkPipeline pipeline_;
 };
 
 #endif // APP_H_

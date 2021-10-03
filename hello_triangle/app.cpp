@@ -1,6 +1,7 @@
 #include "app.h"
 
 #include <algorithm>
+#include <fstream>
 #include <iostream>
 #include <optional>
 #include <set>
@@ -270,6 +271,38 @@ VkExtent2D ChooseSwapChainExtent(const VkSurfaceCapabilitiesKHR& capabilities,
   }
 }
 
+std::vector<char> LoadShaderFile(const std::string& path) {
+  std::vector<char> buffer;
+
+  std::ifstream strm(path, std::ios::ate | std::ios::binary);
+  if (!strm.is_open())
+    return buffer;
+
+  size_t file_size = strm.tellg();
+  buffer.resize(file_size);
+
+  strm.seekg(0);
+  strm.read(buffer.data(), file_size);
+  strm.close();
+
+  return buffer;
+}
+
+VkShaderModule CreateShaderModule(const std::vector<char>& shader_data,
+                                  VkDevice device) {
+  VkShaderModuleCreateInfo shader_module_info = {};
+  shader_module_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+  shader_module_info.codeSize = shader_data.size();
+  shader_module_info.pCode = reinterpret_cast<const uint32_t*>(shader_data.data());
+
+  VkShaderModule shader_module;
+  if (vkCreateShaderModule(device, &shader_module_info, nullptr, &shader_module) 
+          != VK_SUCCESS) {
+    return VK_NULL_HANDLE;
+  }
+  return shader_module;
+}
+
 }  // namespace
 
 bool App::Init() {
@@ -509,10 +542,166 @@ bool App::Init() {
     return false;
   }
 
+  std::vector<char> vert_shader_data = LoadShaderFile("shader_vert.spv");
+  if (vert_shader_data.empty()) {
+    std::cerr << "Could not load vert shader file." << std::endl;
+    return false;
+  }
+
+  std::vector<char> frag_shader_data = LoadShaderFile("shader_frag.spv");
+  if (frag_shader_data.empty()) {
+    std::cerr << "Could not load frag shader file." << std::endl;
+    return false;
+  }
+
+  VkShaderModule vert_shader_module = CreateShaderModule(vert_shader_data,
+                                                         device_);
+  if (vert_shader_module == VK_NULL_HANDLE) {
+    std::cerr << "Could not create vert shader module." << std::endl;
+    return false;
+  }
+
+  VkShaderModule frag_shader_module = CreateShaderModule(frag_shader_data,
+                                                         device_);
+  if (frag_shader_module == VK_NULL_HANDLE) {
+    std::cerr << "Could not create frag shader module." << std::endl;
+    return false;
+  }
+
+  VkPipelineShaderStageCreateInfo vert_shader_info = {};
+  vert_shader_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+  vert_shader_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
+  vert_shader_info.module = vert_shader_module;
+  vert_shader_info.pName = "main";
+
+  VkPipelineShaderStageCreateInfo frag_shader_info = {};
+  frag_shader_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+  frag_shader_info.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+  frag_shader_info.module = frag_shader_module;
+  frag_shader_info.pName = "main";
+
+  VkPipelineShaderStageCreateInfo shader_stages[] = {
+    vert_shader_info, 
+    frag_shader_info
+  };
+
+  VkVertexInputBindingDescription vertex_binding = {};
+  vertex_binding.binding = 0;
+  vertex_binding.stride = sizeof(float) * 2;
+  vertex_binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+  VkVertexInputAttributeDescription attribute_desc = {};
+  attribute_desc.binding = 0;
+  attribute_desc.location = 0;
+  attribute_desc.format = VK_FORMAT_R32G32_SFLOAT;
+  attribute_desc.offset = 0;
+
+  VkPipelineVertexInputStateCreateInfo vertex_input = {};
+  vertex_input.sType = 
+      VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+  vertex_input.vertexBindingDescriptionCount = 1;
+  vertex_input.pVertexBindingDescriptions = &vertex_binding;
+  vertex_input.vertexAttributeDescriptionCount = 1;
+  vertex_input.pVertexAttributeDescriptions = &attribute_desc;
+
+  VkPipelineInputAssemblyStateCreateInfo input_assembly = {};
+  input_assembly.sType = 
+      VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+  input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+  input_assembly.primitiveRestartEnable = VK_FALSE;
+
+  VkViewport viewport = {};
+  viewport.x = 0.f;
+  viewport.y = 0.f;
+  viewport.width = static_cast<float>(swap_chain_extent_.width);
+  viewport.height = static_cast<float>(swap_chain_extent_.height);
+  viewport.minDepth = 0.f;
+  viewport.maxDepth = 1.f;
+
+  VkRect2D scissor = {};
+  scissor.offset = {0, 0};
+  scissor.extent = swap_chain_extent_;
+
+  VkPipelineViewportStateCreateInfo viewport_info = {};
+  viewport_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+  viewport_info.viewportCount = 1;
+  viewport_info.pViewports = &viewport;
+  viewport_info.scissorCount = 1;
+  viewport_info.pScissors = &scissor;
+
+  VkPipelineRasterizationStateCreateInfo rasterizer = {};
+  rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+  rasterizer.depthClampEnable = VK_FALSE;
+  rasterizer.rasterizerDiscardEnable = VK_FALSE;
+  rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+  rasterizer.lineWidth = 1.f;
+  rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+  rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+  rasterizer.depthBiasEnable = VK_FALSE;
+
+  VkPipelineMultisampleStateCreateInfo multisampling = {};
+  multisampling.sType = 
+      VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+  multisampling.sampleShadingEnable = VK_FALSE;
+  multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+  VkPipelineColorBlendAttachmentState color_blend_attachment = {};
+  color_blend_attachment.colorWriteMask = 
+      VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | 
+      VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+  color_blend_attachment.blendEnable = VK_FALSE;
+
+  VkPipelineColorBlendStateCreateInfo color_blend_info = {};
+  color_blend_info.sType = 
+      VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+  color_blend_info.logicOpEnable = VK_FALSE;
+  color_blend_info.logicOp = VK_LOGIC_OP_COPY;
+  color_blend_info.attachmentCount = 1;
+  color_blend_info.pAttachments = &color_blend_attachment;
+  color_blend_info.blendConstants[0] = 0.0f;
+  color_blend_info.blendConstants[1] = 0.0f;
+  color_blend_info.blendConstants[2] = 0.0f;
+  color_blend_info.blendConstants[3] = 0.0f;
+
+  VkPipelineLayoutCreateInfo pipeline_layout_info = {};
+  pipeline_layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+
+  if (vkCreatePipelineLayout(device_, &pipeline_layout_info, nullptr, 
+                             &pipeline_layout_) != VK_SUCCESS) {
+    std::cerr << "Could not create pipeline layout." << std::endl;
+    return false;
+  }
+
+  VkGraphicsPipelineCreateInfo pipeline_info = {};
+  pipeline_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+  pipeline_info.stageCount = 2;
+  pipeline_info.pStages = shader_stages;
+  pipeline_info.pVertexInputState = &vertex_input;
+  pipeline_info.pInputAssemblyState = &input_assembly;
+  pipeline_info.pViewportState = &viewport_info;
+  pipeline_info.pRasterizationState = &rasterizer;
+  pipeline_info.pMultisampleState = &multisampling;
+  pipeline_info.pColorBlendState = &color_blend_info;
+  pipeline_info.layout = pipeline_layout_;
+  pipeline_info.renderPass = render_pass_;
+  pipeline_info.subpass = 0;
+  pipeline_info.basePipelineHandle = VK_NULL_HANDLE;
+
+  if (vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &pipeline_info, 
+                                nullptr, &pipeline_) != VK_SUCCESS) {
+    std::cerr << "Could not create pipeline." << std::endl;
+    return false;
+  }
+
+  vkDestroyShaderModule(device_, vert_shader_module, nullptr);
+  vkDestroyShaderModule(device_, frag_shader_module, nullptr);
+
   return true;
 }
 
 void App::Destroy() {
+  vkDestroyPipeline(device_, pipeline_, nullptr);
+  vkDestroyPipelineLayout(device_, pipeline_layout_, nullptr);
   vkDestroyRenderPass(device_, render_pass_, nullptr);
   for (const auto& image_view : swap_chain_image_views_) {
     vkDestroyImageView(device_, image_view, nullptr);
