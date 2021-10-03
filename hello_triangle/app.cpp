@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -55,12 +56,11 @@ std::vector<const char*> GetRequiredInstanceExtensions() {
   return extensions;
 }
 
-std::vector<std::string_view> GetRequiredDeviceExtensions() {
-  std::vector<std::string_view> extensions;
-  for (const char* extension : kRequiredDeviceExtensions) {
-    extensions.push_back(extension);
-  }
-  return extensions;
+std::vector<const char*> GetRequiredDeviceExtensions() {
+  return std::vector<const char*>(
+      kRequiredDeviceExtensions,
+      kRequiredDeviceExtensions + 
+          sizeof(kRequiredDeviceExtensions) / sizeof(const char*));
 }
 
 VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
@@ -142,11 +142,10 @@ bool SupportsRequiredDeviceExtensions(VkPhysicalDevice device) {
   vkEnumerateDeviceExtensionProperties(device, nullptr, &count, 
                                        available_exts.data());
 
-  for (const std::string_view required_ext_name : 
-           GetRequiredDeviceExtensions()) {
+  for (const char* required_ext_name : GetRequiredDeviceExtensions()) {
     bool found = false;
     for (const auto& available_ext : available_exts) {
-      if (available_ext.extensionName == required_ext_name) {
+      if (strcmp(available_ext.extensionName, required_ext_name) == 0) {
         found = true;
         break;
       }
@@ -252,7 +251,7 @@ bool App::Init() {
 
   std::vector<const char*> validation_layers =
       GetRequiredValidationLayers();
-  std::vector<const char*> instance_exts = 
+  std::vector<const char*> instance_extensions = 
       GetRequiredInstanceExtensions();
 
   VkDebugUtilsMessengerCreateInfoEXT debug_messenger_info = {};
@@ -273,8 +272,8 @@ bool App::Init() {
   instance_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
   instance_info.pApplicationInfo = &app_info;
   instance_info.enabledExtensionCount = 
-      static_cast<uint32_t>(instance_exts.size());
-  instance_info.ppEnabledExtensionNames = instance_exts.data();
+      static_cast<uint32_t>(instance_extensions.size());
+  instance_info.ppEnabledExtensionNames = instance_extensions.data();
   instance_info.enabledLayerCount = 
       static_cast<uint32_t>(validation_layers.size());
   instance_info.ppEnabledLayerNames = validation_layers.data();
@@ -303,6 +302,53 @@ bool App::Init() {
     std::cerr << "Could not find suitable physical device." << std::endl;
     return false;
   }
+
+  QueueFamilyIndices queue_indices = FindQueueFamilyIndices(physical_device_,
+                                                            surface_);
+  std::set<uint32_t> unique_queue_indices = {
+    queue_indices.graphics_family_index.value(), 
+    queue_indices.present_family_index.value()
+  };
+
+  std::vector<VkDeviceQueueCreateInfo> queue_infos;
+  for (uint32_t queue_index : unique_queue_indices) {
+    float priority = 1.0f;
+
+    VkDeviceQueueCreateInfo queue_info{};
+    queue_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    queue_info.queueFamilyIndex = queue_index;
+    queue_info.queueCount = 1;
+    queue_info.pQueuePriorities = &priority;
+    queue_infos.push_back(queue_info);
+  }
+
+  VkPhysicalDeviceFeatures device_features = {};
+  device_features.samplerAnisotropy = VK_TRUE;
+
+  std::vector<const char*> device_extensions = GetRequiredDeviceExtensions();
+
+  VkDeviceCreateInfo device_info = {};
+  device_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+  device_info.queueCreateInfoCount = static_cast<uint32_t>(queue_infos.size());
+  device_info.pQueueCreateInfos = queue_infos.data();
+  device_info.pEnabledFeatures = &device_features;
+  device_info.enabledExtensionCount = 
+      static_cast<uint32_t>(device_extensions.size());
+  device_info.ppEnabledExtensionNames = device_extensions.data();
+  device_info.enabledLayerCount = 
+      static_cast<uint32_t>(validation_layers.size());
+  device_info.ppEnabledLayerNames = validation_layers.data();
+
+  if (vkCreateDevice(physical_device_, &device_info, nullptr, &device_) 
+          != VK_SUCCESS) {
+    std::cerr << "Could not create device." << std::endl;
+    return false;
+  }
+
+  vkGetDeviceQueue(device_, queue_indices.graphics_family_index.value(), 0, 
+                   &graphics_queue_);
+  vkGetDeviceQueue(device_, queue_indices.present_family_index.value(), 0, 
+                   &present_queue_);
 
   return true;
 }

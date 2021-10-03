@@ -18,6 +18,9 @@ private:
   VkDebugUtilsMessengerEXT debug_messenger_;
   VkSurfaceKHR surface_;
   VkPhysicalDevice physical_device_;
+  VkDevice device_;
+  VkQueue graphics_queue_;
+  VkQueue present_queue_;
 };
 
 #endif // APP_H_
