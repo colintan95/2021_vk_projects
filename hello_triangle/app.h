@@ -15,6 +15,9 @@ private:
   GLFWwindow* window_;
 
   VkInstance instance_;
+  VkDebugUtilsMessengerEXT debug_messenger_;
+  VkSurfaceKHR surface_;
+  VkPhysicalDevice physical_device_;
 };
 
 #endif // APP_H_
