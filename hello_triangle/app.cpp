@@ -982,8 +982,6 @@ void App::Destroy() {
 void App::MainLoop() {
   while (!glfwWindowShouldClose(window_)) {
     glfwPollEvents();
-    // if (current_frame_ != 0)
-    //   continue;
     if (!DrawFrame())
       break;
   }
