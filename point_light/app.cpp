@@ -350,7 +350,7 @@ bool App::Init() {
 
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-  window_ = glfwCreateWindow(800, 600, "Hello Triangle", nullptr, nullptr);
+  window_ = glfwCreateWindow(800, 600, "Vulkan Application", nullptr, nullptr);
   glfwSetWindowUserPointer(window_, this);
   glfwSetFramebufferSizeCallback(window_, GlfwFramebufferResized);
 

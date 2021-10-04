@@ -4,8 +4,8 @@ set(CMAKE_CXX_STANDARD 17)
 
 project(vk_projects)
 
-set(GLFW_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/glfw")
-add_subdirectory(${GLFW_DIR})
+set(GLFW_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/glfw")
+add_subdirectory(${GLFW_SRC_DIR})
 
 set(GLM_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/glm")
 
@@ -22,11 +22,11 @@ function(BUILD_SHADER_FILES)
     string(CONCAT new_path ${new_name} ".spv")
 
     add_custom_command(OUTPUT ${new_path}
-      COMMAND "${GLSL_COMPILER_PATH}" "${file}"
-          -o "$<TARGET_FILE_DIR:${BUILD_SHADER_FILES_TARGET}>/${new_path}"
-      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-      MAIN_DEPENDENCY ${file}
-      COMMENT "Creating ${new_path}")
+        COMMAND "${GLSL_COMPILER_PATH}" "${file}"
+            -o "$<TARGET_FILE_DIR:${BUILD_SHADER_FILES_TARGET}>/${new_path}"
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        MAIN_DEPENDENCY ${file}
+        COMMENT "Creating ${new_path}")
 
     list(APPEND SHADER_SPIRV_FILES ${new_path})
   endforeach()
@@ -34,4 +34,4 @@ function(BUILD_SHADER_FILES)
   set(SHADER_SPIRV_FILES ${SHADER_SPIRV_FILES} PARENT_SCOPE)
 endfunction()
 
-add_subdirectory(hello_triangle)
+add_subdirectory(point_light)
