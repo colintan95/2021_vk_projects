@@ -799,6 +799,16 @@ bool App::Init() {
     return false;
   }
 
+  if (!InitResources())
+    return false;
+
+  if (!RecordCommandBuffers())
+    return false;
+
+  return true;
+}
+
+bool App::InitResources() {
   VkCommandBufferAllocateInfo init_command_buffer_info = {};
   init_command_buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
   init_command_buffer_info.commandPool = command_pool_;
@@ -863,6 +873,52 @@ bool App::Init() {
   vkDestroyBuffer(device_, vertex_staging_buffer, nullptr);
   vkFreeMemory(device_, vertex_staging_buffer_memory, nullptr);
 
+  return true;
+}
+
+bool App::RecordCommandBuffers() {
+  for (int i = 0; i < command_buffers_.size(); ++i) {
+    VkCommandBuffer command_buffer = command_buffers_[i];
+
+    VkCommandBufferBeginInfo begin_info = {};
+    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+
+    if (vkBeginCommandBuffer(command_buffer, &begin_info) != VK_SUCCESS) {
+      std::cerr << "Could not begin command buffer." << std::endl;
+      return false;
+    }
+
+    VkClearValue clear_color = {};
+    clear_color.color = {0.0f, 0.0f, 0.0f, 1.0f};
+
+    VkRenderPassBeginInfo render_pass_begin_info = {};
+    render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    render_pass_begin_info.renderPass = render_pass_;
+    render_pass_begin_info.framebuffer = swap_chain_framebuffers_[i];
+    render_pass_begin_info.renderArea.offset = {0, 0};
+    render_pass_begin_info.renderArea.extent = swap_chain_extent_;
+    render_pass_begin_info.clearValueCount = 1;
+    render_pass_begin_info.pClearValues = &clear_color;
+
+    vkCmdBeginRenderPass(command_buffer, &render_pass_begin_info,
+                         VK_SUBPASS_CONTENTS_INLINE);
+
+    vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                      pipeline_);
+
+    VkBuffer vertex_buffers[] = { vertex_buffer_ };
+    VkDeviceSize offsets[] = { 0 };
+    vkCmdBindVertexBuffers(command_buffer, 0, 1, vertex_buffers, offsets);
+
+    vkCmdDraw(command_buffer, 3, 1, 0, 0);
+
+    vkCmdEndRenderPass(command_buffer);
+
+    if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS) {
+      std::cerr << "Could not end command buffer." << std::endl;
+      return false;
+    }
+  }
   return true;
 }
 

@@ -14,6 +14,9 @@ public:
   void MainLoop();
 
 private:
+  bool InitResources();
+  bool RecordCommandBuffers();
+
   GLFWwindow* window_;
 
   VkInstance instance_;
