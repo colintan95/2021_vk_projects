@@ -13,5 +13,11 @@ set(SHADER_SRC_FILES
     shader.frag)
 
 build_shader_files(TARGET point_light FILES ${SHADER_SRC_FILES})
+add_custom_target(shaders ALL DEPENDS ${BUILD_SPIRV_FILES})
 
-add_custom_target(shaders ALL DEPENDS ${SHADER_SPIRV_FILES})
+set(ASSET_FILES
+    cornell_box.obj
+    cornell_box.mtl)
+
+copy_asset_files(TARGET point_light FILES ${ASSET_FILES})
+add_custom_target(assets ALL DEPENDS ${BUILD_ASSET_FILES})

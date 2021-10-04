@@ -15,8 +15,8 @@ function(BUILD_SHADER_FILES)
   cmake_parse_arguments(BUILD_SHADER_FILES "" "TARGET" "FILES" ${ARGN})
 
   set(GLSL_COMPILER_PATH "/Users/colintan/VulkanSDK/1.2.189.0/macOs/bin/glslc")
-  set(SHADER_SPIRV_FILES)
 
+  set(result)
   foreach(file ${BUILD_SHADER_FILES_FILES})
     string(REGEX REPLACE "(.*).(vert|frag)" "\\1_\\2" new_name ${file})
     string(CONCAT new_path ${new_name} ".spv")
@@ -28,10 +28,27 @@ function(BUILD_SHADER_FILES)
         MAIN_DEPENDENCY ${file}
         COMMENT "Creating ${new_path}")
 
-    list(APPEND SHADER_SPIRV_FILES ${new_path})
+    list(APPEND result ${new_path})
   endforeach()
 
-  set(SHADER_SPIRV_FILES ${SHADER_SPIRV_FILES} PARENT_SCOPE)
+  set(BUILD_SPIRV_FILES ${result} PARENT_SCOPE)
+endfunction()
+
+function(COPY_ASSET_FILES)
+  cmake_parse_arguments(COPY_ASSET_FILES "" "TARGET" "FILES" ${ARGN})
+
+  set(result)
+  foreach(file ${COPY_ASSET_FILES_FILES})
+    add_custom_command(OUTPUT ${file}
+        COMMAND ${CMAKE_COMMAND} -E copy "${file}"
+            "$<TARGET_FILE_DIR:${COPY_ASSET_FILES_TARGET}>/${file}"
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        MAIN_DEPENDENCY ${file}
+        COMMENT "Creating ${file} in build directory.")
+    list(APPEND result ${file})
+  endforeach()
+
+  set(BUILD_ASSET_FILES ${result} PARENT_SCOPE)
 endfunction()
 
 add_subdirectory(point_light)
