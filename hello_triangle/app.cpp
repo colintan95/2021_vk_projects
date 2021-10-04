@@ -217,24 +217,6 @@ bool IsPhysicalDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface) {
   return true;
 }
 
-VkPhysicalDevice ChoosePhysicalDevice(VkInstance instance,
-                                      VkSurfaceKHR surface) {
-  uint32_t count = 0;
-  vkEnumeratePhysicalDevices(instance, &count, nullptr);
-  if (count == 0)
-    return VK_NULL_HANDLE;
-
-  std::vector<VkPhysicalDevice> devices(count);
-  vkEnumeratePhysicalDevices(instance, &count, devices.data());
-
-  for (const auto& device : devices) {
-    if (IsPhysicalDeviceSuitable(device, surface))
-      return device;
-  }
-
-  return VK_NULL_HANDLE;
-}
-
 VkSurfaceFormatKHR ChooseSurfaceFormat(
     const std::vector<VkSurfaceFormatKHR>& formats) {
   for (const auto& format : formats) {
@@ -370,6 +352,46 @@ bool App::Init() {
 
   window_ = glfwCreateWindow(800, 600, "Hello Triangle", nullptr, nullptr);
 
+  if (!InitInstanceAndSurface())
+    return false;
+
+  if (!ChoosePhysicalDevice())
+    return false;
+
+  if (!CreateDevice())
+    return false;
+
+  if (!CreateCommandPool())
+    return false;
+
+  if (!CreateSwapChain())
+    return false;
+
+  if (!CreateRenderPass())
+    return false;
+
+  if (!CreatePipeline())
+    return false;
+
+  if (!CreateFramebuffers())
+    return false;
+
+  if (!CreateCommandBuffers())
+    return false;
+
+  if (!InitResources())
+    return false;
+
+  if (!RecordCommandBuffers())
+    return false;
+
+  if (!CreateSyncObjects())
+    return false;
+
+  return true;
+}
+
+bool App::InitInstanceAndSurface() {
   if (!SupportsValidationLayers()) {
     std::cerr << "Does not support required validation layers." << std::endl;
     return false;
@@ -429,14 +451,32 @@ bool App::Init() {
     std::cerr << "Could not create surface." << std::endl;
     return false;
   }
+  return true;
+}
 
-  physical_device_ = ChoosePhysicalDevice(instance_, surface_);
-  if (physical_device_ == VK_NULL_HANDLE) {
+bool App::ChoosePhysicalDevice() {
+  uint32_t count = 0;
+  vkEnumeratePhysicalDevices(instance_, &count, nullptr);
+  if (count == 0) {
     std::cerr << "Could not find suitable physical device." << std::endl;
     return false;
   }
 
-  QueueFamilyIndices queue_indices = FindQueueFamilyIndices(physical_device_,
+  std::vector<VkPhysicalDevice> devices(count);
+  vkEnumeratePhysicalDevices(instance_, &count, devices.data());
+
+  for (const auto& device : devices) {
+    if (IsPhysicalDeviceSuitable(device, surface_)) {
+      physical_device_ = device;
+      return true;
+    }
+  }
+  std::cerr << "Could not find suitable physical device." << std::endl;
+  return false;
+}
+
+bool App::CreateDevice() {
+QueueFamilyIndices queue_indices = FindQueueFamilyIndices(physical_device_,
                                                             surface_);
   graphics_queue_index_ = queue_indices.graphics_family_index.value();
   present_queue_index_ = queue_indices.present_family_index.value();
@@ -461,6 +501,7 @@ bool App::Init() {
   device_features.samplerAnisotropy = VK_TRUE;
 
   std::vector<const char*> device_extensions = GetRequiredDeviceExtensions();
+  std::vector<const char*> validation_layers = GetRequiredValidationLayers();
 
   VkDeviceCreateInfo device_info = {};
   device_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -482,33 +523,6 @@ bool App::Init() {
 
   vkGetDeviceQueue(device_, graphics_queue_index_, 0, &graphics_queue_);
   vkGetDeviceQueue(device_, present_queue_index_, 0, &present_queue_);
-
-  if (!CreateCommandPool())
-    return false;
-
-  if (!CreateSwapChain())
-    return false;
-
-  if (!CreateRenderPass())
-    return false;
-
-  if (!CreatePipeline())
-    return false;
-
-  if (!CreateFramebuffers())
-    return false;
-
-  if (!CreateCommandBuffers())
-    return false;
-
-  if (!InitResources())
-    return false;
-
-  if (!RecordCommandBuffers())
-    return false;
-
-  if (!CreateSyncObjects())
-    return false;
 
   return true;
 }

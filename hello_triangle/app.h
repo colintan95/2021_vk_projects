@@ -14,6 +14,9 @@ public:
   void MainLoop();
 
 private:
+  bool InitInstanceAndSurface();
+  bool ChoosePhysicalDevice();
+  bool CreateDevice();
   bool CreateCommandPool();
   bool CreateSwapChain();
   bool CreateRenderPass();
