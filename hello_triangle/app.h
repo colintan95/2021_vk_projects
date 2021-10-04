@@ -14,6 +14,8 @@ public:
   void MainLoop();
 
 private:
+  static void GlfwFramebufferResized(GLFWwindow* window, int width, int height);
+
   bool InitInstanceAndSurface();
   bool ChoosePhysicalDevice();
   bool CreateDevice();
@@ -29,10 +31,14 @@ private:
 
   bool DrawFrame();
 
+  bool RecreateSwapChain();
+
   int current_frame_ = 0;
 
   uint32_t graphics_queue_index_;
   uint32_t present_queue_index_;
+
+  bool framebuffer_resized_ = false;
 
   GLFWwindow* window_;
 

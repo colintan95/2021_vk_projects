@@ -351,6 +351,8 @@ bool App::Init() {
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
   window_ = glfwCreateWindow(800, 600, "Hello Triangle", nullptr, nullptr);
+  glfwSetWindowUserPointer(window_, this);
+  glfwSetFramebufferSizeCallback(window_, GlfwFramebufferResized);
 
   if (!InitInstanceAndSurface())
     return false;
@@ -389,6 +391,11 @@ bool App::Init() {
     return false;
 
   return true;
+}
+
+void App::GlfwFramebufferResized(GLFWwindow* window, int width, int height) {
+  auto app = reinterpret_cast<App*>(glfwGetWindowUserPointer(window));
+  app->framebuffer_resized_ = true;
 }
 
 bool App::InitInstanceAndSurface() {
@@ -593,10 +600,12 @@ bool App::CreateSwapChain() {
   vkGetSwapchainImagesKHR(device_, swap_chain_, &swap_chain_image_count,
                           swap_chain_images_.data());
 
-  for (const auto& image : swap_chain_images_) {
+  swap_chain_image_views_.resize(swap_chain_images_.size());
+
+  for (int i = 0; i < swap_chain_images_.size(); ++i) {
     VkImageViewCreateInfo image_view_info = {};
     image_view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    image_view_info.image = image;
+    image_view_info.image = swap_chain_images_[i];
     image_view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
     image_view_info.format = swap_chain_image_format_;
     image_view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -606,14 +615,13 @@ bool App::CreateSwapChain() {
     image_view_info.subresourceRange.layerCount = 1;
 
     VkImageView image_view;
-    if (vkCreateImageView(device_, &image_view_info, nullptr, &image_view)
+    if (vkCreateImageView(device_, &image_view_info, nullptr,
+                          &swap_chain_image_views_[i])
             != VK_SUCCESS) {
       std::cerr << "Could not create swap chain image view." << std::endl;
       return false;
     }
-    swap_chain_image_views_.push_back(image_view);
   }
-
   return true;
 }
 
@@ -1002,10 +1010,15 @@ bool App::CreateSyncObjects() {
 }
 
 void App::Destroy() {
+  for (int i = 0; i < kMaxFramesInFlight; i++) {
+    vkDestroySemaphore(device_, image_ready_semaphores_[i], nullptr);
+    vkDestroySemaphore(device_, render_complete_semaphores_[i], nullptr);
+    vkDestroyFence(device_, frame_ready_fences_[i], nullptr);
+  }
+
   vkDestroyBuffer(device_, vertex_buffer_, nullptr);
   vkFreeMemory(device_, vertex_buffer_memory_, nullptr);
 
-  vkDestroyCommandPool(device_, command_pool_, nullptr);
   for (const auto& framebuffer : swap_chain_framebuffers_) {
     vkDestroyFramebuffer(device_, framebuffer, nullptr);
   }
@@ -1016,6 +1029,7 @@ void App::Destroy() {
     vkDestroyImageView(device_, image_view, nullptr);
   }
   vkDestroySwapchainKHR(device_, swap_chain_, nullptr);
+  vkDestroyCommandPool(device_, command_pool_, nullptr);
   vkDestroyDevice(device_, nullptr);
   vkDestroySurfaceKHR(instance_, surface_, nullptr);
   DestroyDebugUtilsMessengerEXT(instance_, debug_messenger_, nullptr);
@@ -1043,7 +1057,11 @@ bool App::DrawFrame() {
   VkResult result = vkAcquireNextImageKHR(
       device_, swap_chain_, UINT64_MAX,
       image_ready_semaphores_[current_frame_], VK_NULL_HANDLE, &image_index);
-  if (result != VK_SUCCESS) {
+
+  if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+    RecreateSwapChain();
+    return true;
+  } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
     std::cerr << "Could not acquire image." << std::endl;
     return false;
   }
@@ -1098,12 +1116,65 @@ bool App::DrawFrame() {
   present_info.pImageIndices = &image_index;
 
   result = vkQueuePresentKHR(present_queue_, &present_info);
-  if (result != VK_SUCCESS) {
+
+  if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR ||
+      framebuffer_resized_) {
+    framebuffer_resized_ = false;
+    RecreateSwapChain();
+    return true;
+  } else if (result != VK_SUCCESS) {
     std::cerr << "Could not present to swap chain." << std::endl;
     return false;
   }
 
   current_frame_ = (current_frame_ + 1) % kMaxFramesInFlight;
+
+  return true;
+}
+
+bool App::RecreateSwapChain() {
+  int width = 0;
+  int height = 0;
+  glfwGetFramebufferSize(window_, &width, &height);
+  while (width == 0 || height == 0) {
+    glfwGetFramebufferSize(window_, &width, &height);
+    glfwWaitEvents();
+  }
+
+  vkDeviceWaitIdle(device_);
+
+  for (const auto& framebuffer : swap_chain_framebuffers_) {
+    vkDestroyFramebuffer(device_, framebuffer, nullptr);
+  }
+  swap_chain_framebuffers_.clear();
+  vkDestroyPipeline(device_, pipeline_, nullptr);
+  vkDestroyPipelineLayout(device_, pipeline_layout_, nullptr);
+  vkDestroyRenderPass(device_, render_pass_, nullptr);
+  for (const auto& image_view : swap_chain_image_views_) {
+    vkDestroyImageView(device_, image_view, nullptr);
+  }
+  swap_chain_image_views_.clear();
+  vkDestroySwapchainKHR(device_, swap_chain_, nullptr);
+
+  if (!CreateSwapChain())
+    return false;
+
+  if (!CreateRenderPass())
+    return false;
+
+  if (!CreatePipeline())
+    return false;
+
+  if (!CreateFramebuffers())
+    return false;
+
+  if (!CreateCommandBuffers())
+    return false;
+
+  if (!RecordCommandBuffers())
+    return false;
+
+  image_rendered_fences_.resize(swap_chain_images_.size(), VK_NULL_HANDLE);
 
   return true;
 }
