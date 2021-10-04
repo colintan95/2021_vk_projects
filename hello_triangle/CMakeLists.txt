@@ -12,6 +12,6 @@ set(SHADER_SRC_FILES
     shader.vert
     shader.frag)
 
-BuildShaderFiles(${SHADER_SRC_FILES})
+build_shader_files(TARGET hello_triangle FILES ${SHADER_SRC_FILES})
 
 add_custom_target(shaders ALL DEPENDS ${SHADER_SPIRV_FILES})
