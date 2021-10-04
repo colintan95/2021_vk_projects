@@ -1,6 +1,7 @@
 #include "app.h"
 
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 #include <algorithm>
 #include <fstream>
@@ -729,13 +730,13 @@ std::vector<char> vert_shader_data = LoadShaderFile("shader_vert.spv");
 
   VkVertexInputBindingDescription vertex_binding = {};
   vertex_binding.binding = 0;
-  vertex_binding.stride = sizeof(float) * 2;
+  vertex_binding.stride = sizeof(glm::vec3);
   vertex_binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
   VkVertexInputAttributeDescription attribute_desc = {};
   attribute_desc.binding = 0;
   attribute_desc.location = 0;
-  attribute_desc.format = VK_FORMAT_R32G32_SFLOAT;
+  attribute_desc.format = VK_FORMAT_R32G32B32_SFLOAT;
   attribute_desc.offset = 0;
 
   VkPipelineVertexInputStateCreateInfo vertex_input = {};
@@ -941,7 +942,16 @@ bool App::InitDescriptors() {
     glm::mat4 mvp_mat;
   } uniform_buffer_data;
 
-  uniform_buffer_data.mvp_mat = glm::mat4(1.f);
+  float aspect_ratio = static_cast<float>(swap_chain_extent_.width) /
+      static_cast<float>(swap_chain_extent_.height);
+
+  glm::mat4 model_mat = glm::mat4(1.f);
+  glm::mat4 view_mat = glm::translate(glm::mat4(1.f),
+                                      glm::vec3(0.f, 0.f, -5.f));
+  glm::mat4 proj_mat = glm::perspective(45.f, aspect_ratio, 0.1f, 100.f);
+  proj_mat[1][1] *= -1;
+
+  uniform_buffer_data.mvp_mat = proj_mat * view_mat * model_mat;
 
   uniform_buffers_.resize(swap_chain_images_.size());
   uniform_buffers_memory_.resize(swap_chain_images_.size());
@@ -987,12 +997,12 @@ bool App::InitBuffers() {
     return false;
   }
 
-  std::vector<glm::vec2> vertex_position_data = {
-    {-0.5f, 0.5f}, {0.5f, 0.5f}, {0.f, -0.5f}
+  std::vector<glm::vec3> vertex_position_data = {
+    {-0.5f, -0.5f, 0.f}, {0.5f, -0.5f, 0.f}, {0.f, 0.5f, 0.f}
   };
 
   VkDeviceSize vertex_buffer_size =
-      sizeof(glm::vec2) * vertex_position_data.size();
+      sizeof(glm::vec3) * vertex_position_data.size();
 
   CreateBuffer(vertex_buffer_size,
                VK_BUFFER_USAGE_TRANSFER_DST_BIT |
