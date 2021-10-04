@@ -947,7 +947,7 @@ bool App::InitDescriptors() {
 
   glm::mat4 model_mat = glm::mat4(1.f);
   glm::mat4 view_mat = glm::translate(glm::mat4(1.f),
-                                      glm::vec3(0.f, 0.f, -5.f));
+                                      glm::vec3(0.f, -1.f, -5.f));
   glm::mat4 proj_mat = glm::perspective(45.f, aspect_ratio, 0.1f, 100.f);
   proj_mat[1][1] *= -1;
 
@@ -997,12 +997,7 @@ bool App::InitBuffers() {
     return false;
   }
 
-  std::vector<glm::vec3> vertex_position_data = {
-    {-0.5f, -0.5f, 0.f}, {0.5f, -0.5f, 0.f}, {0.f, 0.5f, 0.f}
-  };
-
-  VkDeviceSize vertex_buffer_size =
-      sizeof(glm::vec3) * vertex_position_data.size();
+  VkDeviceSize vertex_buffer_size = sizeof(glm::vec3) * model.positions.size();
 
   CreateBuffer(vertex_buffer_size,
                VK_BUFFER_USAGE_TRANSFER_DST_BIT |
@@ -1010,8 +1005,21 @@ bool App::InitBuffers() {
                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, physical_device_,
                device_, &vertex_buffer_, &vertex_buffer_memory_);
 
-  UploadDataToBuffer(vertex_position_data.data(), vertex_buffer_size,
+  UploadDataToBuffer(model.positions.data(), vertex_buffer_size,
                      vertex_buffer_);
+
+  VkDeviceSize index_buffer_size = sizeof(uint16_t) * model.index_buffer.size();
+
+  CreateBuffer(vertex_buffer_size,
+               VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                   VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+               VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, physical_device_,
+               device_, &index_buffer_, &index_buffer_memory_);
+
+  UploadDataToBuffer(model.index_buffer.data(), index_buffer_size,
+                     index_buffer_);
+
+  draw_num_vertices = model.num_vertices;
 
   return true;
 }
@@ -1103,7 +1111,12 @@ bool App::RecordCommandBuffers() {
     VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(command_buffer, 0, 1, vertex_buffers, offsets);
 
+    vkCmdBindIndexBuffer(command_buffer, index_buffer_, 0,
+                         VK_INDEX_TYPE_UINT16);
+
     vkCmdDraw(command_buffer, 3, 1, 0, 0);
+
+    vkCmdDrawIndexed(command_buffer, draw_num_vertices, 1, 0, 0, 0);
 
     vkCmdEndRenderPass(command_buffer);
 
@@ -1148,6 +1161,9 @@ void App::Destroy() {
     vkDestroySemaphore(device_, render_complete_semaphores_[i], nullptr);
     vkDestroyFence(device_, frame_ready_fences_[i], nullptr);
   }
+
+  vkDestroyBuffer(device_, index_buffer_, nullptr);
+  vkFreeMemory(device_, index_buffer_memory_, nullptr);
 
   vkDestroyBuffer(device_, vertex_buffer_, nullptr);
   vkFreeMemory(device_, vertex_buffer_memory_, nullptr);

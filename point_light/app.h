@@ -39,6 +39,7 @@ private:
   bool RecreateSwapChain();
 
   int current_frame_ = 0;
+  int draw_num_vertices = 0;
 
   uint32_t graphics_queue_index_;
   uint32_t present_queue_index_;
@@ -72,6 +73,8 @@ private:
   std::vector<VkDeviceMemory> uniform_buffers_memory_;
   VkBuffer vertex_buffer_;
   VkDeviceMemory vertex_buffer_memory_;
+  VkBuffer index_buffer_;
+  VkDeviceMemory index_buffer_memory_;
   std::vector<VkSemaphore> image_ready_semaphores_;
   std::vector<VkSemaphore> render_complete_semaphores_;
   std::vector<VkFence> frame_ready_fences_;
