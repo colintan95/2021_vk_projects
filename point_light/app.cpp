@@ -992,7 +992,7 @@ bool App::InitDescriptors() {
 
 bool App::InitBuffers() {
   utils::Model model;
-  if (!utils::LoadModel("cornell_box.obj", ".", &model)) {
+  if (!utils::LoadModel("cornell_box.obj", &model)) {
     std::cerr << "Could not load model." << std::endl;
     return false;
   }
@@ -1019,7 +1019,7 @@ bool App::InitBuffers() {
   UploadDataToBuffer(model.index_buffer.data(), index_buffer_size,
                      index_buffer_);
 
-  draw_num_vertices = model.num_vertices;
+  draw_num_vertices = model.index_buffer.size();
 
   return true;
 }
