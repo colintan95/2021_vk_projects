@@ -310,18 +310,18 @@ std::optional<uint32_t> FindMemoryTypeIndex(
 bool CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
                   VkMemoryPropertyFlags mem_properties,
                   VkPhysicalDevice physical_device, VkDevice device,
-                  VkBuffer& buffer, VkDeviceMemory& memory) {
+                  VkBuffer* buffer, VkDeviceMemory* memory) {
   VkBufferCreateInfo buffer_info = {};
   buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
   buffer_info.size = size;
   buffer_info.usage = usage;
   buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-  if (vkCreateBuffer(device, &buffer_info, nullptr, &buffer) != VK_SUCCESS)
+  if (vkCreateBuffer(device, &buffer_info, nullptr, buffer) != VK_SUCCESS)
     return false;
 
   VkMemoryRequirements mem_requirements;
-  vkGetBufferMemoryRequirements(device, buffer, &mem_requirements);
+  vkGetBufferMemoryRequirements(device, *buffer, &mem_requirements);
 
   std::optional<uint32_t> memory_type_index =
       FindMemoryTypeIndex(mem_requirements.memoryTypeBits, mem_properties,
@@ -334,11 +334,11 @@ bool CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
   mem_alloc_info.allocationSize = mem_requirements.size;
   mem_alloc_info.memoryTypeIndex = memory_type_index.value();
 
-  if (vkAllocateMemory(device, &mem_alloc_info, nullptr, &memory)
+  if (vkAllocateMemory(device, &mem_alloc_info, nullptr, memory)
           != VK_SUCCESS) {
     return false;
   }
-  vkBindBufferMemory(device, buffer, memory, 0);
+  vkBindBufferMemory(device, *buffer, *memory, 0);
 
   return true;
 }
@@ -880,7 +880,7 @@ bool App::InitResources() {
                VK_BUFFER_USAGE_TRANSFER_DST_BIT |
                    VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, physical_device_,
-               device_, vertex_buffer_, vertex_buffer_memory_);
+               device_, &vertex_buffer_, &vertex_buffer_memory_);
 
   UploadDataToBuffer(vertex_position_data.data(), vertex_buffer_size,
                      vertex_buffer_);
@@ -909,8 +909,8 @@ void App::UploadDataToBuffer(void* data, VkDeviceSize size, VkBuffer buffer) {
   CreateBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                    VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-               physical_device_, device_, staging_buffer,
-               staging_buffer_memory);
+               physical_device_, device_, &staging_buffer,
+               &staging_buffer_memory);
 
   void* staging_ptr;
   vkMapMemory(device_, staging_buffer_memory, 0, size, 0, &staging_ptr);
