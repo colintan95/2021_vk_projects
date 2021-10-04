@@ -869,22 +869,6 @@ bool App::CreateCommandBuffers() {
 }
 
 bool App::InitResources() {
-  VkCommandBufferAllocateInfo init_command_buffer_info = {};
-  init_command_buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-  init_command_buffer_info.commandPool = command_pool_;
-  init_command_buffer_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-  init_command_buffer_info.commandBufferCount = 1;
-
-  VkCommandBuffer init_command_buffer;
-  vkAllocateCommandBuffers(device_, &init_command_buffer_info,
-                           &init_command_buffer);
-
-  VkCommandBufferBeginInfo init_commands_begin_info = {};
-  init_commands_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-  init_commands_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-  vkBeginCommandBuffer(init_command_buffer, &init_commands_begin_info);
-
   std::vector<glm::vec2> vertex_position_data = {
     {-0.5f, 0.5f}, {0.5f, 0.5f}, {0.f, -0.5f}
   };
@@ -892,48 +876,65 @@ bool App::InitResources() {
   VkDeviceSize vertex_buffer_size =
       sizeof(glm::vec2) * vertex_position_data.size();
 
-  VkBuffer vertex_staging_buffer;
-  VkDeviceMemory vertex_staging_buffer_memory;
-  CreateBuffer(vertex_buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                   VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-               physical_device_, device_, vertex_staging_buffer,
-               vertex_staging_buffer_memory);
-
-  void* data;
-  vkMapMemory(device_, vertex_staging_buffer_memory, 0, vertex_buffer_size, 0,
-              &data);
-  memcpy(data, vertex_position_data.data(),
-          static_cast<size_t>(vertex_buffer_size));
-  vkUnmapMemory(device_, vertex_staging_buffer_memory);
-
   CreateBuffer(vertex_buffer_size,
                VK_BUFFER_USAGE_TRANSFER_DST_BIT |
                    VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, physical_device_,
                device_, vertex_buffer_, vertex_buffer_memory_);
 
-  VkBufferCopy copy_info = {};
-  copy_info.size = vertex_buffer_size;
-  vkCmdCopyBuffer(init_command_buffer, vertex_staging_buffer, vertex_buffer_, 1,
-                  &copy_info);
-
-  vkEndCommandBuffer(init_command_buffer);
-
-  VkSubmitInfo init_commands_submit_info = {};
-  init_commands_submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-  init_commands_submit_info.commandBufferCount = 1;
-  init_commands_submit_info.pCommandBuffers = &init_command_buffer;
-
-  vkQueueSubmit(graphics_queue_, 1, &init_commands_submit_info, VK_NULL_HANDLE);
-  vkQueueWaitIdle(graphics_queue_);
-
-  vkFreeCommandBuffers(device_, command_pool_, 1, &init_command_buffer);
-
-  vkDestroyBuffer(device_, vertex_staging_buffer, nullptr);
-  vkFreeMemory(device_, vertex_staging_buffer_memory, nullptr);
+  UploadDataToBuffer(vertex_position_data.data(), vertex_buffer_size,
+                     vertex_buffer_);
 
   return true;
+}
+
+void App::UploadDataToBuffer(void* data, VkDeviceSize size, VkBuffer buffer) {
+  VkCommandBufferAllocateInfo command_buffer_info = {};
+  command_buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  command_buffer_info.commandPool = command_pool_;
+  command_buffer_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+  command_buffer_info.commandBufferCount = 1;
+
+  VkCommandBuffer command_buffer;
+  vkAllocateCommandBuffers(device_, &command_buffer_info, &command_buffer);
+
+  VkCommandBufferBeginInfo commands_begin_info = {};
+  commands_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  commands_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+  vkBeginCommandBuffer(command_buffer, &commands_begin_info);
+
+  VkBuffer staging_buffer;
+  VkDeviceMemory staging_buffer_memory;
+  CreateBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                   VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+               physical_device_, device_, staging_buffer,
+               staging_buffer_memory);
+
+  void* staging_ptr;
+  vkMapMemory(device_, staging_buffer_memory, 0, size, 0, &staging_ptr);
+  memcpy(staging_ptr, data, static_cast<size_t>(size));
+  vkUnmapMemory(device_, staging_buffer_memory);
+
+  VkBufferCopy copy_info = {};
+  copy_info.size = size;
+  vkCmdCopyBuffer(command_buffer, staging_buffer, buffer, 1, &copy_info);
+
+  vkEndCommandBuffer(command_buffer);
+
+  VkSubmitInfo commands_submit_info = {};
+  commands_submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  commands_submit_info.commandBufferCount = 1;
+  commands_submit_info.pCommandBuffers = &command_buffer;
+
+  vkQueueSubmit(graphics_queue_, 1, &commands_submit_info, VK_NULL_HANDLE);
+  vkQueueWaitIdle(graphics_queue_);
+
+  vkDestroyBuffer(device_, staging_buffer, nullptr);
+  vkFreeMemory(device_, staging_buffer_memory, nullptr);
+
+  vkFreeCommandBuffers(device_, command_pool_, 1, &command_buffer);
 }
 
 bool App::RecordCommandBuffers() {

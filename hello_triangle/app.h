@@ -29,6 +29,8 @@ private:
   bool RecordCommandBuffers();
   bool CreateSyncObjects();
 
+  void UploadDataToBuffer(void* data, VkDeviceSize size, VkBuffer buffer);
+
   bool DrawFrame();
 
   bool RecreateSwapChain();
