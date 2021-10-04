@@ -27,7 +27,8 @@ private:
   bool CreateCommandBuffers();
   bool CreateDescriptorPool();
   bool CreateDescriptorSets();
-  bool InitResources();
+  bool InitDescriptors();
+  bool InitBuffers();
   bool RecordCommandBuffers();
   bool CreateSyncObjects();
 
@@ -67,6 +68,8 @@ private:
   std::vector<VkCommandBuffer> command_buffers_;
   VkDescriptorPool descriptor_pool_;
   std::vector<VkDescriptorSet> descriptor_sets_;
+  std::vector<VkBuffer> uniform_buffers_;
+  std::vector<VkDeviceMemory> uniform_buffers_memory_;
   VkBuffer vertex_buffer_;
   VkDeviceMemory vertex_buffer_memory_;
   std::vector<VkSemaphore> image_ready_semaphores_;

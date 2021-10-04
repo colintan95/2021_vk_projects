@@ -389,7 +389,10 @@ bool App::Init() {
   if (!CreateDescriptorSets())
     return false;
 
-  if (!InitResources())
+  if (!InitDescriptors())
+    return false;
+
+  if (!InitBuffers())
     return false;
 
   if (!RecordCommandBuffers())
@@ -933,7 +936,51 @@ bool App::CreateDescriptorSets() {
   return true;
 }
 
-bool App::InitResources() {
+bool App::InitDescriptors() {
+  struct UniformBufferData {
+    glm::mat4 mvp_mat;
+  } uniform_buffer_data;
+
+  uniform_buffer_data.mvp_mat = glm::mat4(1.f);
+
+  uniform_buffers_.resize(swap_chain_images_.size());
+  uniform_buffers_memory_.resize(swap_chain_images_.size());
+
+  VkDeviceSize buffer_size = sizeof(uniform_buffer_data);
+
+  for (size_t i = 0; i < swap_chain_images_.size(); i++) {
+    CreateBuffer(buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                     VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                 physical_device_, device_, &uniform_buffers_[i],
+                 &uniform_buffers_memory_[i]);
+
+    void* buffer_ptr;
+    vkMapMemory(device_, uniform_buffers_memory_[i], 0, buffer_size, 0,
+                &buffer_ptr);
+    memcpy(buffer_ptr, &uniform_buffer_data, buffer_size);
+    vkUnmapMemory(device_, uniform_buffers_memory_[i]);
+
+    VkDescriptorBufferInfo descriptor_buffer_info = {};
+    descriptor_buffer_info.buffer = uniform_buffers_[i];
+    descriptor_buffer_info.offset = 0;
+    descriptor_buffer_info.range = buffer_size;
+
+    VkWriteDescriptorSet descriptor_write = {};
+    descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptor_write.dstSet = descriptor_sets_[i];
+    descriptor_write.dstBinding = 0;
+    descriptor_write.dstArrayElement = 0;
+    descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptor_write.descriptorCount = 1;
+    descriptor_write.pBufferInfo = &descriptor_buffer_info;
+
+    vkUpdateDescriptorSets(device_, 1, &descriptor_write, 0, nullptr);
+  }
+  return true;
+}
+
+bool App::InitBuffers() {
   utils::Model model;
   if (!utils::LoadModel("cornell_box.obj", ".", &model)) {
     std::cerr << "Could not load model." << std::endl;
@@ -1038,6 +1085,10 @@ bool App::RecordCommandBuffers() {
     vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                       pipeline_);
 
+    vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            pipeline_layout_, 0, 1, &descriptor_sets_[i], 0,
+                            nullptr);
+
     VkBuffer vertex_buffers[] = { vertex_buffer_ };
     VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(command_buffer, 0, 1, vertex_buffers, offsets);
@@ -1090,6 +1141,11 @@ void App::Destroy() {
 
   vkDestroyBuffer(device_, vertex_buffer_, nullptr);
   vkFreeMemory(device_, vertex_buffer_memory_, nullptr);
+
+  for (int i = 0; i < swap_chain_images_.size(); ++i) {
+    vkDestroyBuffer(device_, uniform_buffers_[i], nullptr);
+    vkFreeMemory(device_, uniform_buffers_memory_[i], nullptr);
+  }
 
   vkDestroyDescriptorPool(device_, descriptor_pool_, nullptr);
   vkDestroyCommandPool(device_, command_pool_, nullptr);
@@ -1218,6 +1274,13 @@ bool App::RecreateSwapChain() {
 
   vkDeviceWaitIdle(device_);
 
+  for (int i = 0; i < swap_chain_images_.size(); ++i) {
+    vkDestroyBuffer(device_, uniform_buffers_[i], nullptr);
+    vkFreeMemory(device_, uniform_buffers_memory_[i], nullptr);
+  }
+  uniform_buffers_.clear();
+  uniform_buffers_memory_.clear();
+
   vkDestroyDescriptorPool(device_, descriptor_pool_, nullptr);
   descriptor_sets_.clear();
 
@@ -1253,6 +1316,8 @@ bool App::RecreateSwapChain() {
   if (!CreateDescriptorSets())
     return false;
 
+  if (!InitDescriptors())
+    return false;
 
   if (!CreateCommandBuffers())
     return false;
