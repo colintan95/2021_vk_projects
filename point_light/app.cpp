@@ -365,9 +365,6 @@ bool App::Init() {
   if (!CreateDevice())
     return false;
 
-  if (!CreateCommandPool())
-    return false;
-
   if (!CreateSwapChain())
     return false;
 
@@ -380,7 +377,16 @@ bool App::Init() {
   if (!CreateFramebuffers())
     return false;
 
+  if (!CreateCommandPool())
+    return false;
+
   if (!CreateCommandBuffers())
+    return false;
+
+  if (!CreateDescriptorPool())
+    return false;
+
+  if (!CreateDescriptorSets())
     return false;
 
   if (!InitResources())
@@ -533,19 +539,6 @@ bool App::CreateDevice() {
   vkGetDeviceQueue(device_, graphics_queue_index_, 0, &graphics_queue_);
   vkGetDeviceQueue(device_, present_queue_index_, 0, &present_queue_);
 
-  return true;
-}
-
-bool App::CreateCommandPool() {
-  VkCommandPoolCreateInfo command_pool_info = {};
-  command_pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-  command_pool_info.queueFamilyIndex = graphics_queue_index_;
-
-  if (vkCreateCommandPool(device_, &command_pool_info, nullptr, &command_pool_)
-          != VK_SUCCESS) {
-    std::cerr << "Could not create command pool." << std::endl;
-    return false;
-  }
   return true;
 }
 
@@ -708,6 +701,25 @@ std::vector<char> vert_shader_data = LoadShaderFile("shader_vert.spv");
   frag_shader_info.module = frag_shader_module;
   frag_shader_info.pName = "main";
 
+  VkDescriptorSetLayoutBinding descriptor_set_binding = {};
+  descriptor_set_binding.binding = 0;
+  descriptor_set_binding.descriptorCount = 1;
+  descriptor_set_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  descriptor_set_binding.pImmutableSamplers = nullptr;
+  descriptor_set_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+  VkDescriptorSetLayoutCreateInfo descriptor_set_layout_info = {};
+  descriptor_set_layout_info.sType =
+      VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+  descriptor_set_layout_info.bindingCount = 1;
+  descriptor_set_layout_info.pBindings = &descriptor_set_binding;
+
+  if (vkCreateDescriptorSetLayout(device_, &descriptor_set_layout_info, nullptr,
+                                  &descriptor_set_layout_) != VK_SUCCESS) {
+    std::cerr << "Could not create descriptor set." << std::endl;
+    return false;
+  }
+
   VkPipelineShaderStageCreateInfo shader_stages[] = {
     vert_shader_info, frag_shader_info
   };
@@ -792,6 +804,8 @@ std::vector<char> vert_shader_data = LoadShaderFile("shader_vert.spv");
 
   VkPipelineLayoutCreateInfo pipeline_layout_info = {};
   pipeline_layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+  pipeline_layout_info.setLayoutCount = 1;
+  pipeline_layout_info.pSetLayouts = &descriptor_set_layout_;
 
   if (vkCreatePipelineLayout(device_, &pipeline_layout_info, nullptr,
                              &pipeline_layout_) != VK_SUCCESS) {
@@ -850,6 +864,19 @@ bool App::CreateFramebuffers() {
   return true;
 }
 
+bool App::CreateCommandPool() {
+  VkCommandPoolCreateInfo command_pool_info = {};
+  command_pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+  command_pool_info.queueFamilyIndex = graphics_queue_index_;
+
+  if (vkCreateCommandPool(device_, &command_pool_info, nullptr, &command_pool_)
+          != VK_SUCCESS) {
+    std::cerr << "Could not create command pool." << std::endl;
+    return false;
+  }
+  return true;
+}
+
 bool App::CreateCommandBuffers() {
   command_buffers_.resize(swap_chain_framebuffers_.size());
 
@@ -863,6 +890,44 @@ bool App::CreateCommandBuffers() {
   if (vkAllocateCommandBuffers(device_, &command_buffer_info,
                                command_buffers_.data()) != VK_SUCCESS) {
     std::cerr << "Could not create command buffers." << std::endl;
+    return false;
+  }
+  return true;
+}
+
+bool App::CreateDescriptorPool() {
+  VkDescriptorPoolSize pool_size = {};
+  pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  pool_size.descriptorCount = static_cast<uint32_t>(swap_chain_images_.size());
+
+  VkDescriptorPoolCreateInfo pool_info = {};
+  pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+  pool_info.poolSizeCount = 1;
+  pool_info.pPoolSizes = &pool_size;
+  pool_info.maxSets = static_cast<uint32_t>(swap_chain_images_.size());
+
+  if (vkCreateDescriptorPool(device_, &pool_info, nullptr, &descriptor_pool_)
+          != VK_SUCCESS) {
+    std::cerr << "Could not create descriptor pool." << std::endl;
+    return false;
+  }
+  return true;
+}
+
+bool App::CreateDescriptorSets() {
+  std::vector<VkDescriptorSetLayout> layouts(swap_chain_images_.size(),
+                                             descriptor_set_layout_);
+  VkDescriptorSetAllocateInfo alloc_info = {};
+  alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+  alloc_info.descriptorPool = descriptor_pool_;
+  alloc_info.descriptorSetCount = static_cast<uint32_t>(
+      swap_chain_images_.size());
+  alloc_info.pSetLayouts = layouts.data();
+
+  descriptor_sets_.resize(swap_chain_images_.size());
+  if (vkAllocateDescriptorSets(device_, &alloc_info, descriptor_sets_.data())
+          != VK_SUCCESS) {
+    std::cerr << "Could not create descriptor sets." << std::endl;
     return false;
   }
   return true;
@@ -1026,17 +1091,20 @@ void App::Destroy() {
   vkDestroyBuffer(device_, vertex_buffer_, nullptr);
   vkFreeMemory(device_, vertex_buffer_memory_, nullptr);
 
+  vkDestroyDescriptorPool(device_, descriptor_pool_, nullptr);
+  vkDestroyCommandPool(device_, command_pool_, nullptr);
+
   for (const auto& framebuffer : swap_chain_framebuffers_) {
     vkDestroyFramebuffer(device_, framebuffer, nullptr);
   }
   vkDestroyPipeline(device_, pipeline_, nullptr);
   vkDestroyPipelineLayout(device_, pipeline_layout_, nullptr);
+  vkDestroyDescriptorSetLayout(device_, descriptor_set_layout_, nullptr);
   vkDestroyRenderPass(device_, render_pass_, nullptr);
   for (const auto& image_view : swap_chain_image_views_) {
     vkDestroyImageView(device_, image_view, nullptr);
   }
   vkDestroySwapchainKHR(device_, swap_chain_, nullptr);
-  vkDestroyCommandPool(device_, command_pool_, nullptr);
   vkDestroyDevice(device_, nullptr);
   vkDestroySurfaceKHR(instance_, surface_, nullptr);
   DestroyDebugUtilsMessengerEXT(instance_, debug_messenger_, nullptr);
@@ -1150,12 +1218,16 @@ bool App::RecreateSwapChain() {
 
   vkDeviceWaitIdle(device_);
 
+  vkDestroyDescriptorPool(device_, descriptor_pool_, nullptr);
+  descriptor_sets_.clear();
+
   for (const auto& framebuffer : swap_chain_framebuffers_) {
     vkDestroyFramebuffer(device_, framebuffer, nullptr);
   }
   swap_chain_framebuffers_.clear();
   vkDestroyPipeline(device_, pipeline_, nullptr);
   vkDestroyPipelineLayout(device_, pipeline_layout_, nullptr);
+  vkDestroyDescriptorSetLayout(device_, descriptor_set_layout_, nullptr);
   vkDestroyRenderPass(device_, render_pass_, nullptr);
   for (const auto& image_view : swap_chain_image_views_) {
     vkDestroyImageView(device_, image_view, nullptr);
@@ -1174,6 +1246,13 @@ bool App::RecreateSwapChain() {
 
   if (!CreateFramebuffers())
     return false;
+
+  if (!CreateDescriptorPool())
+    return false;
+
+  if (!CreateDescriptorSets())
+    return false;
+
 
   if (!CreateCommandBuffers())
     return false;
