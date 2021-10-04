@@ -34,6 +34,8 @@ private:
   std::vector<VkFramebuffer> swap_chain_framebuffers_;
   VkCommandPool command_pool_;
   std::vector<VkCommandBuffer> command_buffers_;
+  VkBuffer vertex_buffer_;
+  VkDeviceMemory vertex_buffer_memory_;
 };
 
 #endif // APP_H_

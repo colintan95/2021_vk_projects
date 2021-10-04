@@ -6,6 +6,8 @@ add_executable(hello_triangle
 target_link_libraries(hello_triangle PRIVATE glfw)
 target_link_libraries(hello_triangle PRIVATE Vulkan::Vulkan)
 
+target_include_directories(hello_triangle PRIVATE ${GLM_INCLUDE_DIR})
+
 set(SHADER_SRC
     shader.vert
     shader.frag)

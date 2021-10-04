@@ -7,6 +7,8 @@ project(vk_projects)
 set(GLFW_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/glfw")
 add_subdirectory(${GLFW_DIR})
 
+set(GLM_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/glm")
+
 find_package(Vulkan REQUIRED FATAL_ERROR)
 
 add_subdirectory(hello_triangle)
