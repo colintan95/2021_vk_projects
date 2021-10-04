@@ -483,7 +483,7 @@ bool App::ChoosePhysicalDevice() {
 }
 
 bool App::CreateDevice() {
-QueueFamilyIndices queue_indices = FindQueueFamilyIndices(physical_device_,
+  QueueFamilyIndices queue_indices = FindQueueFamilyIndices(physical_device_,
                                                             surface_);
   graphics_queue_index_ = queue_indices.graphics_family_index.value();
   present_queue_index_ = queue_indices.present_family_index.value();
@@ -515,11 +515,11 @@ QueueFamilyIndices queue_indices = FindQueueFamilyIndices(physical_device_,
   device_info.queueCreateInfoCount = static_cast<uint32_t>(queue_infos.size());
   device_info.pQueueCreateInfos = queue_infos.data();
   device_info.pEnabledFeatures = &device_features;
-  device_info.enabledExtensionCount =
-      static_cast<uint32_t>(device_extensions.size());
+  device_info.enabledExtensionCount = static_cast<uint32_t>(
+      device_extensions.size());
   device_info.ppEnabledExtensionNames = device_extensions.data();
-  device_info.enabledLayerCount =
-      static_cast<uint32_t>(validation_layers.size());
+  device_info.enabledLayerCount = static_cast<uint32_t>(
+      validation_layers.size());
   device_info.ppEnabledLayerNames = validation_layers.data();
 
   if (vkCreateDevice(physical_device_, &device_info, nullptr, &device_)
@@ -551,18 +551,18 @@ bool App::CreateSwapChain() {
   SwapChainSupport swap_chain_support = QuerySwapChainSupport(physical_device_,
                                                               surface_);
 
-  VkSurfaceFormatKHR surface_format =
-      ChooseSurfaceFormat(swap_chain_support.formats);
-  VkPresentModeKHR present_mode =
-      ChoosePresentMode(swap_chain_support.present_modes);
+  VkSurfaceFormatKHR surface_format = ChooseSurfaceFormat(
+      swap_chain_support.formats);
+  VkPresentModeKHR present_mode = ChoosePresentMode(
+      swap_chain_support.present_modes);
 
   swap_chain_image_format_ = surface_format.format;
   swap_chain_extent_ = ChooseSwapChainExtent(swap_chain_support.capabilities,
                                              window_);
 
-  uint32_t swap_chain_image_count =
-      std::min(swap_chain_support.capabilities.minImageCount + 1,
-               swap_chain_support.capabilities.maxImageCount);
+  uint32_t swap_chain_image_count = std::min(
+      swap_chain_support.capabilities.minImageCount + 1,
+      swap_chain_support.capabilities.maxImageCount);
 
   VkSwapchainCreateInfoKHR swap_chain_info = {};
   swap_chain_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
@@ -616,8 +616,7 @@ bool App::CreateSwapChain() {
 
     VkImageView image_view;
     if (vkCreateImageView(device_, &image_view_info, nullptr,
-                          &swap_chain_image_views_[i])
-            != VK_SUCCESS) {
+                          &swap_chain_image_views_[i]) != VK_SUCCESS) {
       std::cerr << "Could not create swap chain image view." << std::endl;
       return false;
     }
@@ -708,8 +707,7 @@ std::vector<char> vert_shader_data = LoadShaderFile("shader_vert.spv");
   frag_shader_info.pName = "main";
 
   VkPipelineShaderStageCreateInfo shader_stages[] = {
-    vert_shader_info,
-    frag_shader_info
+    vert_shader_info, frag_shader_info
   };
 
   VkVertexInputBindingDescription vertex_binding = {};
