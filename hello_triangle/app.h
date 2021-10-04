@@ -14,9 +14,12 @@ public:
   void MainLoop();
 
 private:
+  bool CreateCommandPool();
   bool CreateSwapChain();
   bool CreateRenderPass();
   bool CreatePipeline();
+  bool CreateFramebuffers();
+  bool CreateCommandBuffers();
   bool InitResources();
   bool RecordCommandBuffers();
   bool CreateSyncObjects();
