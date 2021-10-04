@@ -14,6 +14,9 @@ public:
   void MainLoop();
 
 private:
+  bool CreateSwapChain();
+  bool CreateRenderPass();
+  bool CreatePipeline();
   bool InitResources();
   bool RecordCommandBuffers();
   bool CreateSyncObjects();
@@ -21,6 +24,9 @@ private:
   bool DrawFrame();
 
   int current_frame_ = 0;
+
+  uint32_t graphics_queue_index_;
+  uint32_t present_queue_index_;
 
   GLFWwindow* window_;
 

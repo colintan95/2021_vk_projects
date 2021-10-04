@@ -438,9 +438,11 @@ bool App::Init() {
 
   QueueFamilyIndices queue_indices = FindQueueFamilyIndices(physical_device_,
                                                             surface_);
+  graphics_queue_index_ = queue_indices.graphics_family_index.value();
+  present_queue_index_ = queue_indices.present_family_index.value();
+
   std::set<uint32_t> unique_queue_indices = {
-    queue_indices.graphics_family_index.value(),
-    queue_indices.present_family_index.value()
+    graphics_queue_index_, present_queue_index_
   };
 
   std::vector<VkDeviceQueueCreateInfo> queue_infos;
@@ -478,10 +480,77 @@ bool App::Init() {
     return false;
   }
 
-  vkGetDeviceQueue(device_, queue_indices.graphics_family_index.value(), 0,
-                   &graphics_queue_);
-  vkGetDeviceQueue(device_, queue_indices.present_family_index.value(), 0,
-                   &present_queue_);
+  vkGetDeviceQueue(device_, graphics_queue_index_, 0, &graphics_queue_);
+  vkGetDeviceQueue(device_, present_queue_index_, 0, &present_queue_);
+
+  if (!CreateSwapChain())
+    return false;
+
+  if (!CreateRenderPass())
+    return false;
+
+  if (!CreatePipeline())
+    return false;
+
+  swap_chain_framebuffers_.resize(swap_chain_images_.size());
+
+  for (int i = 0; i < swap_chain_images_.size(); ++i) {
+    VkImageView attachments[] = { swap_chain_image_views_[i] };
+
+    VkFramebufferCreateInfo framebuffer_info = {};
+    framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    framebuffer_info.renderPass = render_pass_;
+    framebuffer_info.attachmentCount = 1;
+    framebuffer_info.pAttachments = attachments;
+    framebuffer_info.width = swap_chain_extent_.width;
+    framebuffer_info.height = swap_chain_extent_.height;
+    framebuffer_info.layers = 1;
+
+    if (vkCreateFramebuffer(device_, &framebuffer_info, nullptr,
+                            &swap_chain_framebuffers_[i]) != VK_SUCCESS) {
+      std::cerr << "Could not create framebuffer." << std::endl;
+      return false;
+    }
+  }
+
+  VkCommandPoolCreateInfo command_pool_info = {};
+  command_pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+  command_pool_info.queueFamilyIndex = graphics_queue_index_;
+
+  if (vkCreateCommandPool(device_, &command_pool_info, nullptr, &command_pool_)
+          != VK_SUCCESS) {
+    std::cerr << "Could not create command pool." << std::endl;
+    return false;
+  }
+
+  command_buffers_.resize(swap_chain_framebuffers_.size());
+
+  VkCommandBufferAllocateInfo command_buffer_info = {};
+  command_buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  command_buffer_info.commandPool = command_pool_;
+  command_buffer_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+  command_buffer_info.commandBufferCount =
+      static_cast<uint32_t>(command_buffers_.size());
+
+  if (vkAllocateCommandBuffers(device_, &command_buffer_info,
+                               command_buffers_.data()) != VK_SUCCESS) {
+    std::cerr << "Could not create command buffers." << std::endl;
+    return false;
+  }
+
+  if (!InitResources())
+    return false;
+
+  if (!RecordCommandBuffers())
+    return false;
+
+  if (!CreateSyncObjects())
+    return false;
+
+  return true;
+}
+
+bool App::CreateSwapChain() {
 
   SwapChainSupport swap_chain_support = QuerySwapChainSupport(physical_device_,
                                                               surface_);
@@ -514,12 +583,8 @@ bool App::Init() {
   swap_chain_info.presentMode = present_mode;
   swap_chain_info.clipped = VK_TRUE;
 
-  if (queue_indices.graphics_family_index.value()
-          != queue_indices.present_family_index.value()) {
-    uint32_t indices[] = {
-       queue_indices.graphics_family_index.value(),
-       queue_indices.present_family_index.value()
-    };
+  if (graphics_queue_index_ != present_queue_index_) {
+    uint32_t indices[] = { graphics_queue_index_, present_queue_index_ };
     swap_chain_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
     swap_chain_info.queueFamilyIndexCount = 2;
     swap_chain_info.pQueueFamilyIndices = indices;
@@ -560,7 +625,11 @@ bool App::Init() {
     swap_chain_image_views_.push_back(image_view);
   }
 
-  VkAttachmentDescription color_attachment = {};
+  return true;
+}
+
+bool App::CreateRenderPass() {
+VkAttachmentDescription color_attachment = {};
   color_attachment.format = swap_chain_image_format_;
   color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
   color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -599,8 +668,11 @@ bool App::Init() {
     std::cerr << "Could not create render pass." << std::endl;
     return false;
   }
+  return true;
+}
 
-  std::vector<char> vert_shader_data = LoadShaderFile("shader_vert.spv");
+bool App::CreatePipeline() {
+std::vector<char> vert_shader_data = LoadShaderFile("shader_vert.spv");
   if (vert_shader_data.empty()) {
     std::cerr << "Could not load vert shader file." << std::endl;
     return false;
@@ -753,62 +825,6 @@ bool App::Init() {
 
   vkDestroyShaderModule(device_, vert_shader_module, nullptr);
   vkDestroyShaderModule(device_, frag_shader_module, nullptr);
-
-  swap_chain_framebuffers_.resize(swap_chain_images_.size());
-
-  for (int i = 0; i < swap_chain_images_.size(); ++i) {
-    VkImageView attachments[] = { swap_chain_image_views_[i] };
-
-    VkFramebufferCreateInfo framebuffer_info = {};
-    framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-    framebuffer_info.renderPass = render_pass_;
-    framebuffer_info.attachmentCount = 1;
-    framebuffer_info.pAttachments = attachments;
-    framebuffer_info.width = swap_chain_extent_.width;
-    framebuffer_info.height = swap_chain_extent_.height;
-    framebuffer_info.layers = 1;
-
-    if (vkCreateFramebuffer(device_, &framebuffer_info, nullptr,
-                            &swap_chain_framebuffers_[i]) != VK_SUCCESS) {
-      std::cerr << "Could not create framebuffer." << std::endl;
-      return false;
-    }
-  }
-
-  VkCommandPoolCreateInfo command_pool_info = {};
-  command_pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-  command_pool_info.queueFamilyIndex =
-      queue_indices.graphics_family_index.value();
-
-  if (vkCreateCommandPool(device_, &command_pool_info, nullptr, &command_pool_)
-          != VK_SUCCESS) {
-    std::cerr << "Could not create command pool." << std::endl;
-    return false;
-  }
-
-  command_buffers_.resize(swap_chain_framebuffers_.size());
-
-  VkCommandBufferAllocateInfo command_buffer_info = {};
-  command_buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-  command_buffer_info.commandPool = command_pool_;
-  command_buffer_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-  command_buffer_info.commandBufferCount =
-      static_cast<uint32_t>(command_buffers_.size());
-
-  if (vkAllocateCommandBuffers(device_, &command_buffer_info,
-                               command_buffers_.data()) != VK_SUCCESS) {
-    std::cerr << "Could not create command buffers." << std::endl;
-    return false;
-  }
-
-  if (!InitResources())
-    return false;
-
-  if (!RecordCommandBuffers())
-    return false;
-
-  if (!CreateSyncObjects())
-    return false;
 
   return true;
 }
