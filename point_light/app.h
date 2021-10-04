@@ -1,5 +1,5 @@
-#ifndef APP_H_
-#define APP_H_
+#ifndef POINT_LIGHT_APP_H_
+#define POINT_LIGHT_APP_H_
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -70,4 +70,4 @@ private:
   std::vector<VkFence> image_rendered_fences_;
 };
 
-#endif // APP_H_
+#endif // POINT_LIGHT_APP_H_

@@ -3,10 +3,14 @@ add_executable(point_light
     app.h
     app.cpp)
 
+target_include_directories(point_light PRIVATE "${PROJECT_ROOT_DIR}")
+
 target_link_libraries(point_light PRIVATE glfw)
 target_link_libraries(point_light PRIVATE Vulkan::Vulkan)
 
-target_include_directories(point_light PRIVATE ${GLM_INCLUDE_DIR})
+target_include_directories(point_light PRIVATE "${GLM_INCLUDE_DIR}")
+
+target_link_libraries(point_light PRIVATE utils)
 
 set(SHADER_SRC_FILES
     shader.vert

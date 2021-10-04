@@ -11,6 +11,8 @@
 #include <string_view>
 #include <vector>
 
+#include "utils/model.h"
+
 namespace {
 
 const char* kRequiredValidationLayers[] = {
@@ -867,6 +869,12 @@ bool App::CreateCommandBuffers() {
 }
 
 bool App::InitResources() {
+  utils::Model model;
+  if (!utils::LoadModel("cornell_box.obj", ".", &model)) {
+    std::cerr << "Could not load model." << std::endl;
+    return false;
+  }
+
   std::vector<glm::vec2> vertex_position_data = {
     {-0.5f, 0.5f}, {0.5f, 0.5f}, {0.f, -0.5f}
   };
