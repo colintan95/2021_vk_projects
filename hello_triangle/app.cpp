@@ -696,10 +696,61 @@ bool App::Init() {
   vkDestroyShaderModule(device_, vert_shader_module, nullptr);
   vkDestroyShaderModule(device_, frag_shader_module, nullptr);
 
+  swap_chain_framebuffers_.resize(swap_chain_images_.size());
+
+  for (int i = 0; i < swap_chain_images_.size(); ++i) {
+    VkImageView attachments[] = { swap_chain_image_views_[i] };
+
+    VkFramebufferCreateInfo framebuffer_info = {};
+    framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    framebuffer_info.renderPass = render_pass_;
+    framebuffer_info.attachmentCount = 1;
+    framebuffer_info.pAttachments = attachments;
+    framebuffer_info.width = swap_chain_extent_.width;
+    framebuffer_info.height = swap_chain_extent_.height;
+    framebuffer_info.layers = 1;
+
+    if (vkCreateFramebuffer(device_, &framebuffer_info, nullptr, 
+                            &swap_chain_framebuffers_[i]) != VK_SUCCESS) {
+      std::cerr << "Could not create framebuffer." << std::endl;
+      return false;
+    }
+  }
+
+  VkCommandPoolCreateInfo command_pool_info = {};
+  command_pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+  command_pool_info.queueFamilyIndex = 
+      queue_indices.graphics_family_index.value();
+
+  if (vkCreateCommandPool(device_, &command_pool_info, nullptr, &command_pool_) 
+          != VK_SUCCESS) {
+    std::cerr << "Could not create command pool." << std::endl;
+    return false;
+  }
+
+  command_buffers_.resize(swap_chain_framebuffers_.size());
+
+  VkCommandBufferAllocateInfo command_buffer_info = {};
+  command_buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  command_buffer_info.commandPool = command_pool_;
+  command_buffer_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+  command_buffer_info.commandBufferCount = 
+      static_cast<uint32_t>(command_buffers_.size());
+
+  if (vkAllocateCommandBuffers(device_, &command_buffer_info, 
+                               command_buffers_.data()) != VK_SUCCESS) {
+    std::cerr << "Could not create command buffers." << std::endl;
+    return false;
+  }
+
   return true;
 }
 
 void App::Destroy() {
+  vkDestroyCommandPool(device_, command_pool_, nullptr);
+  for (const auto& framebuffer : swap_chain_framebuffers_) {
+    vkDestroyFramebuffer(device_, framebuffer, nullptr);
+  }
   vkDestroyPipeline(device_, pipeline_, nullptr);
   vkDestroyPipelineLayout(device_, pipeline_layout_, nullptr);
   vkDestroyRenderPass(device_, render_pass_, nullptr);
