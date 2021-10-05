@@ -18,7 +18,7 @@ function(BUILD_SHADER_FILES)
 
   set(result)
   foreach(file ${BUILD_SHADER_FILES_FILES})
-    string(REGEX REPLACE "(.*).(vert|frag)" "\\1_\\2" new_name ${file})
+    string(REGEX REPLACE "(.*).(vert|frag|geom)" "\\1_\\2" new_name ${file})
     string(CONCAT new_path ${new_name} ".spv")
 
     add_custom_command(OUTPUT ${new_path}

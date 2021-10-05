@@ -13,8 +13,10 @@ target_include_directories(point_light PRIVATE "${GLM_INCLUDE_DIR}")
 target_link_libraries(point_light PRIVATE utils)
 
 set(SHADER_SRC_FILES
+    shader.frag
     shader.vert
-    shader.frag)
+    shadow.geom
+    shadow.vert)
 
 build_shader_files(TARGET point_light FILES ${SHADER_SRC_FILES})
 add_custom_target(shaders ALL DEPENDS ${BUILD_SPIRV_FILES})
