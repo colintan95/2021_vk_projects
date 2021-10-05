@@ -22,18 +22,25 @@ private:
   bool ChoosePhysicalDevice();
   bool CreateDevice();
   bool CreateSwapChain();
+
   bool CreateRenderPass();
   bool CreatePipeline();
   bool CreateFramebuffers();
+
+  bool CreateShadowRenderPass();
   bool CreateShadowPipeline();
+
   bool CreateCommandPool();
   bool CreateCommandBuffers();
   bool CreateDescriptorPool();
   bool CreateDescriptorSets();
+
   bool LoadModel();
   bool InitDescriptors();
   bool InitBuffers();
+
   bool RecordCommandBuffers();
+
   bool CreateSyncObjects();
 
   void UploadDataToBuffer(void* data, VkDeviceSize size, VkBuffer buffer);
@@ -69,18 +76,17 @@ private:
 
   VkRenderPass render_pass_;
   VkDescriptorSetLayout descriptor_set_layout_;
-
   VkPipelineLayout pipeline_layout_;
   VkPipeline pipeline_;
-
-  VkPipelineLayout shadow_pipeline_layout_;
-  VkPipeline shadow_pipeline_;
-
   VkImage depth_image_;
   VkDeviceMemory depth_image_memory_;
   VkImageView depth_image_view_;
-
   std::vector<VkFramebuffer> swap_chain_framebuffers_;
+
+  VkRenderPass shadow_render_pass_;
+  VkDescriptorSetLayout shadow_descriptor_layout_;
+  VkPipelineLayout shadow_pipeline_layout_;
+  VkPipeline shadow_pipeline_;
 
   VkCommandPool command_pool_;
   std::vector<VkCommandBuffer> command_buffers_;
