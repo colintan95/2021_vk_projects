@@ -425,6 +425,9 @@ bool App::Init() {
   if (!CreateSwapChain())
     return false;
 
+  if (!CreateDescriptorPool())
+    return false;
+
   if (!CreateRenderPass())
     return false;
 
@@ -447,9 +450,6 @@ bool App::Init() {
     return false;
 
   if (!CreateCommandBuffers())
-    return false;
-
-  if (!CreateDescriptorPool())
     return false;
 
   if (!CreateDescriptorSets())
@@ -686,6 +686,26 @@ bool App::CreateSwapChain() {
       std::cerr << "Could not create swap chain image view." << std::endl;
       return false;
     }
+  }
+  return true;
+}
+
+bool App::CreateDescriptorPool() {
+  VkDescriptorPoolSize pool_size = {};
+  pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  pool_size.descriptorCount =
+      static_cast<uint32_t>(swap_chain_images_.size()) * 2;
+
+  VkDescriptorPoolCreateInfo pool_info = {};
+  pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+  pool_info.poolSizeCount = 1;
+  pool_info.pPoolSizes = &pool_size;
+  pool_info.maxSets = static_cast<uint32_t>(swap_chain_images_.size());
+
+  if (vkCreateDescriptorPool(device_, &pool_info, nullptr, &descriptor_pool_)
+          != VK_SUCCESS) {
+    std::cerr << "Could not create descriptor pool." << std::endl;
+    return false;
   }
   return true;
 }
@@ -1337,26 +1357,6 @@ bool App::CreateCommandBuffers() {
   return true;
 }
 
-bool App::CreateDescriptorPool() {
-  VkDescriptorPoolSize pool_size = {};
-  pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  pool_size.descriptorCount =
-      static_cast<uint32_t>(swap_chain_images_.size()) * 2;
-
-  VkDescriptorPoolCreateInfo pool_info = {};
-  pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-  pool_info.poolSizeCount = 1;
-  pool_info.pPoolSizes = &pool_size;
-  pool_info.maxSets = static_cast<uint32_t>(swap_chain_images_.size());
-
-  if (vkCreateDescriptorPool(device_, &pool_info, nullptr, &descriptor_pool_)
-          != VK_SUCCESS) {
-    std::cerr << "Could not create descriptor pool." << std::endl;
-    return false;
-  }
-  return true;
-}
-
 bool App::CreateDescriptorSets() {
   std::vector<VkDescriptorSetLayout> layouts(swap_chain_images_.size(),
                                              descriptor_set_layout_);
@@ -1943,6 +1943,9 @@ bool App::RecreateSwapChain() {
   if (!CreateSwapChain())
     return false;
 
+  if (!CreateDescriptorPool())
+    return false;
+
   if (!CreateRenderPass())
     return false;
 
@@ -1959,9 +1962,6 @@ bool App::RecreateSwapChain() {
     return false;
 
   if (!CreateShadowFramebuffers())
-    return false;
-
-  if (!CreateDescriptorPool())
     return false;
 
   if (!CreateDescriptorSets())

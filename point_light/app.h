@@ -23,6 +23,8 @@ private:
   bool CreateDevice();
   bool CreateSwapChain();
 
+  bool CreateDescriptorPool();
+
   bool CreateRenderPass();
   bool CreatePipeline();
   bool CreateFramebuffers();
@@ -33,7 +35,6 @@ private:
 
   bool CreateCommandPool();
   bool CreateCommandBuffers();
-  bool CreateDescriptorPool();
   bool CreateDescriptorSets();
 
   bool LoadModel();
