@@ -24,6 +24,7 @@ private:
   bool CreateSwapChain();
   bool CreateRenderPass();
   bool CreatePipeline();
+  bool CreateShadowPipeline();
   bool CreateFramebuffers();
   bool CreateCommandPool();
   bool CreateCommandBuffers();
@@ -68,8 +69,12 @@ private:
 
   VkRenderPass render_pass_;
   VkDescriptorSetLayout descriptor_set_layout_;
+
   VkPipelineLayout pipeline_layout_;
   VkPipeline pipeline_;
+
+  VkPipelineLayout shadow_pipeline_layout_;
+  VkPipeline shadow_pipeline_;
 
   VkImage depth_image_;
   VkDeviceMemory depth_image_memory_;

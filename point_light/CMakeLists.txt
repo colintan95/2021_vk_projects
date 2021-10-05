@@ -15,6 +15,7 @@ target_link_libraries(point_light PRIVATE utils)
 set(SHADER_SRC_FILES
     shader.frag
     shader.vert
+    shadow.frag
     shadow.geom
     shadow.vert)
 

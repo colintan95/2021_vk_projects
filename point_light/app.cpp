@@ -307,20 +307,30 @@ std::vector<char> LoadShaderFile(const std::string& path) {
   return buffer;
 }
 
-VkShaderModule CreateShaderModule(const std::vector<char>& shader_data,
-                                  VkDevice device) {
-  VkShaderModuleCreateInfo shader_module_info = {};
-  shader_module_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-  shader_module_info.codeSize = shader_data.size();
-  shader_module_info.pCode =
-      reinterpret_cast<const uint32_t*>(shader_data.data());
+bool CreateShaderModulesFromFiles(const std::vector<std::string>& file_paths,
+                                  VkDevice device,
+                                  std::vector<VkShaderModule>* shader_modules) {
+  shader_modules->clear();
 
-  VkShaderModule shader_module;
-  if (vkCreateShaderModule(device, &shader_module_info, nullptr, &shader_module)
-          != VK_SUCCESS) {
-    return VK_NULL_HANDLE;
+  for (const std::string& path : file_paths) {
+    std::vector<char> data = LoadShaderFile(path);
+    if (data.empty())
+      return false;
+
+    VkShaderModuleCreateInfo shader_module_info = {};
+    shader_module_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    shader_module_info.codeSize = data.size();
+    shader_module_info.pCode = reinterpret_cast<const uint32_t*>(data.data());
+
+    VkShaderModule shader_module;
+    if (vkCreateShaderModule(device, &shader_module_info, nullptr,
+                             &shader_module) != VK_SUCCESS) {
+      return false;
+    }
+
+    shader_modules->push_back(shader_module);
   }
-  return shader_module;
+  return true;
 }
 
 std::optional<uint32_t> FindMemoryTypeIndex(
@@ -469,6 +479,9 @@ bool App::Init() {
     return false;
 
   if (!CreatePipeline())
+    return false;
+
+  if (!CreateShadowPipeline())
     return false;
 
   if (!CreateFramebuffers())
@@ -785,42 +798,26 @@ bool App::CreateRenderPass() {
 }
 
 bool App::CreatePipeline() {
-  std::vector<char> vert_shader_data = LoadShaderFile("shader_vert.spv");
-  if (vert_shader_data.empty()) {
-    std::cerr << "Could not load vert shader file." << std::endl;
-    return false;
-  }
-
-  std::vector<char> frag_shader_data = LoadShaderFile("shader_frag.spv");
-  if (frag_shader_data.empty()) {
-    std::cerr << "Could not load frag shader file." << std::endl;
-    return false;
-  }
-
-  VkShaderModule vert_shader_module = CreateShaderModule(vert_shader_data,
-                                                         device_);
-  if (vert_shader_module == VK_NULL_HANDLE) {
-    std::cerr << "Could not create vert shader module." << std::endl;
-    return false;
-  }
-
-  VkShaderModule frag_shader_module = CreateShaderModule(frag_shader_data,
-                                                         device_);
-  if (frag_shader_module == VK_NULL_HANDLE) {
-    std::cerr << "Could not create frag shader module." << std::endl;
+  std::vector<std::string> shader_file_paths = {
+    "shader_vert.spv", "shader_frag.spv"
+  };
+  std::vector<VkShaderModule> shader_modules;
+  if (!CreateShaderModulesFromFiles(shader_file_paths, device_,
+                                    &shader_modules)) {
+    std::cerr << "Could not create shader modules." << std::endl;
     return false;
   }
 
   VkPipelineShaderStageCreateInfo vert_shader_info = {};
   vert_shader_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
   vert_shader_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
-  vert_shader_info.module = vert_shader_module;
+  vert_shader_info.module = shader_modules[0];
   vert_shader_info.pName = "main";
 
   VkPipelineShaderStageCreateInfo frag_shader_info = {};
   frag_shader_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
   frag_shader_info.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-  frag_shader_info.module = frag_shader_module;
+  frag_shader_info.module = shader_modules[1];
   frag_shader_info.pName = "main";
 
   VkDescriptorSetLayoutBinding vert_ubo_binding = {};
@@ -1007,9 +1004,37 @@ bool App::CreatePipeline() {
     return false;
   }
 
-  vkDestroyShaderModule(device_, vert_shader_module, nullptr);
-  vkDestroyShaderModule(device_, frag_shader_module, nullptr);
+  for (VkShaderModule shader_module : shader_modules) {
+    vkDestroyShaderModule(device_, shader_module, nullptr);
+  }
+  return true;
+}
 
+bool App::CreateShadowPipeline() {
+  std::vector<std::string> shader_file_paths = {
+    "shadow_vert.spv", "shadow_geom.spv", "shadow_frag.spv"
+  };
+  std::vector<VkShaderModule> shader_modules;
+  if (!CreateShaderModulesFromFiles(shader_file_paths, device_,
+                                    &shader_modules)) {
+    std::cerr << "Could not create shadow shader modules." << std::endl;
+    return false;
+  }
+
+  VkVertexInputBindingDescription position_binding = {};
+  position_binding.binding = 0;
+  position_binding.stride = sizeof(glm::vec3);
+  position_binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+  VkVertexInputAttributeDescription position_attrib_desc = {};
+  position_attrib_desc.binding = 0;
+  position_attrib_desc.location = 0;
+  position_attrib_desc.format = VK_FORMAT_R32G32B32_SFLOAT;
+  position_attrib_desc.offset = 0;
+
+  for (VkShaderModule shader_module : shader_modules) {
+    vkDestroyShaderModule(device_, shader_module, nullptr);
+  }
   return true;
 }
 
