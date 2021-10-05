@@ -1012,7 +1012,7 @@ bool App::CreatePipeline() {
 
 bool App::CreateShadowPipeline() {
   std::vector<std::string> shader_file_paths = {
-    "shadow_vert.spv", "shadow_geom.spv", "shadow_frag.spv"
+    "shadow_vert.spv", "shadow_frag.spv"
   };
   std::vector<VkShaderModule> shader_modules;
   if (!CreateShaderModulesFromFiles(shader_file_paths, device_,

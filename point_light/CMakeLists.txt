@@ -16,7 +16,6 @@ set(SHADER_SRC_FILES
     shader.frag
     shader.vert
     shadow.frag
-    shadow.geom
     shadow.vert)
 
 build_shader_files(TARGET point_light FILES ${SHADER_SRC_FILES})
