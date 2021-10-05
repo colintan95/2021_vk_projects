@@ -982,7 +982,7 @@ bool App::LoadModel() {
 bool App::InitDescriptors() {
   struct VertexShaderUbo {
     glm::mat4 mvp_mat;
-  };
+  } vert_ubo_data;
 
   float aspect_ratio = static_cast<float>(swap_chain_extent_.width) /
       static_cast<float>(swap_chain_extent_.height);
@@ -993,7 +993,7 @@ bool App::InitDescriptors() {
   glm::mat4 proj_mat = glm::perspective(45.f, aspect_ratio, 0.1f, 100.f);
   proj_mat[1][1] *= -1;
 
-  glm::mat4 mvp_mat = proj_mat * view_mat * model_mat;
+  vert_ubo_data.mvp_mat = proj_mat * view_mat * model_mat;
 
   vert_ubo_buffers_.resize(swap_chain_images_.size());
   vert_ubo_buffers_memory_.resize(swap_chain_images_.size());
@@ -1010,7 +1010,7 @@ bool App::InitDescriptors() {
     VertexShaderUbo* ubo_ptr;
     vkMapMemory(device_, vert_ubo_buffers_memory_[i], 0, vert_ubo_buffer_size,
                 0, reinterpret_cast<void**>(&ubo_ptr));
-    ubo_ptr->mvp_mat = mvp_mat;
+    *ubo_ptr = vert_ubo_data;
     vkUnmapMemory(device_, vert_ubo_buffers_memory_[i]);
 
     VkDescriptorBufferInfo descriptor_buffer_info = {};
@@ -1030,9 +1030,24 @@ bool App::InitDescriptors() {
     vkUpdateDescriptorSets(device_, 1, &descriptor_write, 0, nullptr);
   }
 
-  struct FragmentShaderUbo {
-    utils::Material materials[20];
+  struct Material {
+    glm::vec4 ambient_color;
+    glm::vec4 diffuse_color;
   };
+
+  struct FragmentShaderUbo {
+    glm::vec4 light_position;
+    Material materials[20];
+  } frag_ubo_data;
+
+  frag_ubo_data.light_position = glm::vec4(0.f, 0.f, 0.9f, 0.f);
+
+  for (int i = 0; i < model_.materials.size(); ++i) {
+    frag_ubo_data.materials[i].ambient_color =
+        glm::vec4(model_.materials[i].ambient_color, 0.f);
+    frag_ubo_data.materials[i].diffuse_color =
+        glm::vec4(model_.materials[i].diffuse_color, 0.f);
+  }
 
   frag_ubo_buffers_.resize(swap_chain_images_.size());
   frag_ubo_buffers_memory_.resize(swap_chain_images_.size());
@@ -1049,8 +1064,7 @@ bool App::InitDescriptors() {
     FragmentShaderUbo* ubo_ptr;
     vkMapMemory(device_, frag_ubo_buffers_memory_[i], 0, frag_ubo_buffer_size,
                 0, reinterpret_cast<void**>(&ubo_ptr));
-    memcpy(ubo_ptr->materials, model_.materials.data(),
-           sizeof(utils::Material) * model_.materials.size());
+    *ubo_ptr = frag_ubo_data;
     vkUnmapMemory(device_, frag_ubo_buffers_memory_[i]);
 
     VkDescriptorBufferInfo descriptor_buffer_info = {};
