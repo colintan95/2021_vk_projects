@@ -1201,7 +1201,7 @@ bool App::InitDescriptors() {
     Material materials[20];
   } frag_ubo_data;
 
-  frag_ubo_data.light_pos = glm::vec4(0.f, 0.f, 0.9f, 0.f);
+  frag_ubo_data.light_pos = glm::vec4(0.f, 1.9f, 0.f, 0.f);
 
   for (int i = 0; i < model_.materials.size(); ++i) {
     frag_ubo_data.materials[i].ambient_color =
