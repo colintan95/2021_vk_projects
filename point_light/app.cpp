@@ -728,24 +728,43 @@ std::vector<char> vert_shader_data = LoadShaderFile("shader_vert.spv");
     vert_shader_info, frag_shader_info
   };
 
-  VkVertexInputBindingDescription vertex_binding = {};
-  vertex_binding.binding = 0;
-  vertex_binding.stride = sizeof(glm::vec3);
-  vertex_binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+  VkVertexInputBindingDescription position_binding = {};
+  position_binding.binding = 0;
+  position_binding.stride = sizeof(glm::vec3);
+  position_binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-  VkVertexInputAttributeDescription attribute_desc = {};
-  attribute_desc.binding = 0;
-  attribute_desc.location = 0;
-  attribute_desc.format = VK_FORMAT_R32G32B32_SFLOAT;
-  attribute_desc.offset = 0;
+  VkVertexInputAttributeDescription position_attrib_desc = {};
+  position_attrib_desc.binding = 0;
+  position_attrib_desc.location = 0;
+  position_attrib_desc.format = VK_FORMAT_R32G32B32_SFLOAT;
+  position_attrib_desc.offset = 0;
+
+  VkVertexInputBindingDescription mtl_idx_binding = {};
+  mtl_idx_binding.binding = 1;
+  mtl_idx_binding.stride = sizeof(uint32_t);
+  mtl_idx_binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+  VkVertexInputAttributeDescription mtl_idx_attrib_desc = {};
+  mtl_idx_attrib_desc.binding = 1;
+  mtl_idx_attrib_desc.location = 1;
+  mtl_idx_attrib_desc.format = VK_FORMAT_R32_UINT;
+  mtl_idx_attrib_desc.offset = 0;
+
+  VkVertexInputBindingDescription vertex_bindings[] = {
+    position_binding, mtl_idx_binding
+  };
+
+  VkVertexInputAttributeDescription vertex_attribs[] = {
+    position_attrib_desc, mtl_idx_attrib_desc
+  };
 
   VkPipelineVertexInputStateCreateInfo vertex_input = {};
   vertex_input.sType =
       VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-  vertex_input.vertexBindingDescriptionCount = 1;
-  vertex_input.pVertexBindingDescriptions = &vertex_binding;
-  vertex_input.vertexAttributeDescriptionCount = 1;
-  vertex_input.pVertexAttributeDescriptions = &attribute_desc;
+  vertex_input.vertexBindingDescriptionCount = 2;
+  vertex_input.pVertexBindingDescriptions = vertex_bindings;
+  vertex_input.vertexAttributeDescriptionCount = 2;
+  vertex_input.pVertexAttributeDescriptions = vertex_attribs;
 
   VkPipelineInputAssemblyStateCreateInfo input_assembly = {};
   input_assembly.sType =
@@ -1008,6 +1027,18 @@ bool App::InitBuffers() {
   UploadDataToBuffer(model.positions.data(), vertex_buffer_size,
                      vertex_buffer_);
 
+  VkDeviceSize material_idx_buffer_size = sizeof(uint32_t) *
+      model.material_indices.size();
+
+  CreateBuffer(material_idx_buffer_size,
+               VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                   VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+               VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, physical_device_,
+               device_, &material_idx_buffer_, &material_idx_buffer_memory_);
+
+  UploadDataToBuffer(model.material_indices.data(), material_idx_buffer_size,
+                     material_idx_buffer_);
+
   VkDeviceSize index_buffer_size = sizeof(uint16_t) * model.index_buffer.size();
 
   CreateBuffer(vertex_buffer_size,
@@ -1107,9 +1138,9 @@ bool App::RecordCommandBuffers() {
                             pipeline_layout_, 0, 1, &descriptor_sets_[i], 0,
                             nullptr);
 
-    VkBuffer vertex_buffers[] = { vertex_buffer_ };
-    VkDeviceSize offsets[] = { 0 };
-    vkCmdBindVertexBuffers(command_buffer, 0, 1, vertex_buffers, offsets);
+    VkBuffer vertex_buffers[] = { vertex_buffer_, material_idx_buffer_ };
+    VkDeviceSize offsets[] = { 0, 0 };
+    vkCmdBindVertexBuffers(command_buffer, 0, 2, vertex_buffers, offsets);
 
     vkCmdBindIndexBuffer(command_buffer, index_buffer_, 0,
                          VK_INDEX_TYPE_UINT16);
@@ -1164,6 +1195,9 @@ void App::Destroy() {
 
   vkDestroyBuffer(device_, index_buffer_, nullptr);
   vkFreeMemory(device_, index_buffer_memory_, nullptr);
+
+  vkDestroyBuffer(device_, material_idx_buffer_, nullptr);
+  vkFreeMemory(device_, material_idx_buffer_memory_, nullptr);
 
   vkDestroyBuffer(device_, vertex_buffer_, nullptr);
   vkFreeMemory(device_, vertex_buffer_memory_, nullptr);

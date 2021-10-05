@@ -19,7 +19,7 @@ struct Model {
   std::vector<glm::vec3> normals;
   std::vector<uint16_t> index_buffer;
 
-  std::vector<uint16_t> material_indices;
+  std::vector<uint32_t> material_indices;
 
   std::vector<Material> materials;
 };

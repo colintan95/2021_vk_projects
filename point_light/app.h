@@ -73,6 +73,8 @@ private:
   std::vector<VkDeviceMemory> uniform_buffers_memory_;
   VkBuffer vertex_buffer_;
   VkDeviceMemory vertex_buffer_memory_;
+  VkBuffer material_idx_buffer_;
+  VkDeviceMemory material_idx_buffer_memory_;
   VkBuffer index_buffer_;
   VkDeviceMemory index_buffer_memory_;
   std::vector<VkSemaphore> image_ready_semaphores_;

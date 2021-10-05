@@ -89,7 +89,7 @@ bool LoadModel(const std::string& obj_path, Model* out_model) {
 
   uint16_t current_idx = 0;
   std::string mtl_name;
-  uint16_t mtl_idx;
+  int mtl_idx;
 
   while (std::getline(file_strm, line)) {
     std::stringstream sstrm(line);
