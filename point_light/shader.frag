@@ -14,5 +14,5 @@ layout(binding = 1) uniform UniformBufferObject {
 } ubo;
 
 void main() {
-  out_color = vec4(1.0, 0.0, 0.0, 1.0);
+  out_color = vec4(ubo.materials[frag_material_index].ambient_color, 1.0);
 }

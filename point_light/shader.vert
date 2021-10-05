@@ -10,5 +10,7 @@ layout(binding = 0) uniform UniformBufferObject {
 } ubo;
 
 void main() {
+  frag_material_index = vert_material_index;
+
   gl_Position = ubo.mvp_mat * vec4(vert_position, 1.0);
 }

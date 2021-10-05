@@ -6,6 +6,8 @@
 
 #include <vector>
 
+#include "utils/model.h"
+
 class App {
 public:
   bool Init();
@@ -27,6 +29,7 @@ private:
   bool CreateCommandBuffers();
   bool CreateDescriptorPool();
   bool CreateDescriptorSets();
+  bool LoadModel();
   bool InitDescriptors();
   bool InitBuffers();
   bool RecordCommandBuffers();
@@ -39,7 +42,8 @@ private:
   bool RecreateSwapChain();
 
   int current_frame_ = 0;
-  int draw_num_vertices = 0;
+
+  utils::Model model_;
 
   uint32_t graphics_queue_index_;
   uint32_t present_queue_index_;
@@ -69,8 +73,10 @@ private:
   std::vector<VkCommandBuffer> command_buffers_;
   VkDescriptorPool descriptor_pool_;
   std::vector<VkDescriptorSet> descriptor_sets_;
-  std::vector<VkBuffer> uniform_buffers_;
-  std::vector<VkDeviceMemory> uniform_buffers_memory_;
+  std::vector<VkBuffer> vert_ubo_buffers_;
+  std::vector<VkDeviceMemory> vert_ubo_buffers_memory_;
+  std::vector<VkBuffer> frag_ubo_buffers_;
+  std::vector<VkDeviceMemory> frag_ubo_buffers_memory_;
   VkBuffer vertex_buffer_;
   VkDeviceMemory vertex_buffer_memory_;
   VkBuffer material_idx_buffer_;

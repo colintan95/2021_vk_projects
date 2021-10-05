@@ -390,6 +390,9 @@ bool App::Init() {
   if (!CreateDescriptorSets())
     return false;
 
+  if (!LoadModel())
+    return false;
+
   if (!InitDescriptors())
     return false;
 
@@ -705,18 +708,29 @@ std::vector<char> vert_shader_data = LoadShaderFile("shader_vert.spv");
   frag_shader_info.module = frag_shader_module;
   frag_shader_info.pName = "main";
 
-  VkDescriptorSetLayoutBinding descriptor_set_binding = {};
-  descriptor_set_binding.binding = 0;
-  descriptor_set_binding.descriptorCount = 1;
-  descriptor_set_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  descriptor_set_binding.pImmutableSamplers = nullptr;
-  descriptor_set_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+  VkDescriptorSetLayoutBinding vert_ubo_binding = {};
+  vert_ubo_binding.binding = 0;
+  vert_ubo_binding.descriptorCount = 1;
+  vert_ubo_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  vert_ubo_binding.pImmutableSamplers = nullptr;
+  vert_ubo_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+  VkDescriptorSetLayoutBinding frag_ubo_binding = {};
+  frag_ubo_binding.binding = 1;
+  frag_ubo_binding.descriptorCount = 1;
+  frag_ubo_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  frag_ubo_binding.pImmutableSamplers = nullptr;
+  frag_ubo_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+  VkDescriptorSetLayoutBinding descriptor_set_bindings[] = {
+    vert_ubo_binding, frag_ubo_binding
+  };
 
   VkDescriptorSetLayoutCreateInfo descriptor_set_layout_info = {};
   descriptor_set_layout_info.sType =
       VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-  descriptor_set_layout_info.bindingCount = 1;
-  descriptor_set_layout_info.pBindings = &descriptor_set_binding;
+  descriptor_set_layout_info.bindingCount = 2;
+  descriptor_set_layout_info.pBindings = descriptor_set_bindings;
 
   if (vkCreateDescriptorSetLayout(device_, &descriptor_set_layout_info, nullptr,
                                   &descriptor_set_layout_) != VK_SUCCESS) {
@@ -921,7 +935,8 @@ bool App::CreateCommandBuffers() {
 bool App::CreateDescriptorPool() {
   VkDescriptorPoolSize pool_size = {};
   pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  pool_size.descriptorCount = static_cast<uint32_t>(swap_chain_images_.size());
+  pool_size.descriptorCount =
+      static_cast<uint32_t>(swap_chain_images_.size()) * 2;
 
   VkDescriptorPoolCreateInfo pool_info = {};
   pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -956,6 +971,14 @@ bool App::CreateDescriptorSets() {
   return true;
 }
 
+bool App::LoadModel() {
+  if (!utils::LoadModel("cornell_box.obj", &model_)) {
+    std::cerr << "Could not load model." << std::endl;
+    return false;
+  }
+  return true;
+}
+
 bool App::InitDescriptors() {
   struct UniformBufferData {
     glm::mat4 mvp_mat;
@@ -972,28 +995,28 @@ bool App::InitDescriptors() {
 
   uniform_buffer_data.mvp_mat = proj_mat * view_mat * model_mat;
 
-  uniform_buffers_.resize(swap_chain_images_.size());
-  uniform_buffers_memory_.resize(swap_chain_images_.size());
+  vert_ubo_buffers_.resize(swap_chain_images_.size());
+  vert_ubo_buffers_memory_.resize(swap_chain_images_.size());
 
-  VkDeviceSize buffer_size = sizeof(uniform_buffer_data);
+  VkDeviceSize vert_ubo_buffer_size = sizeof(uniform_buffer_data);
 
   for (size_t i = 0; i < swap_chain_images_.size(); i++) {
-    CreateBuffer(buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+    CreateBuffer(vert_ubo_buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                      VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                 physical_device_, device_, &uniform_buffers_[i],
-                 &uniform_buffers_memory_[i]);
+                 physical_device_, device_, &vert_ubo_buffers_[i],
+                 &vert_ubo_buffers_memory_[i]);
 
     void* buffer_ptr;
-    vkMapMemory(device_, uniform_buffers_memory_[i], 0, buffer_size, 0,
-                &buffer_ptr);
-    memcpy(buffer_ptr, &uniform_buffer_data, buffer_size);
-    vkUnmapMemory(device_, uniform_buffers_memory_[i]);
+    vkMapMemory(device_, vert_ubo_buffers_memory_[i], 0, vert_ubo_buffer_size,
+                0, &buffer_ptr);
+    memcpy(buffer_ptr, &uniform_buffer_data, vert_ubo_buffer_size);
+    vkUnmapMemory(device_, vert_ubo_buffers_memory_[i]);
 
     VkDescriptorBufferInfo descriptor_buffer_info = {};
-    descriptor_buffer_info.buffer = uniform_buffers_[i];
+    descriptor_buffer_info.buffer = vert_ubo_buffers_[i];
     descriptor_buffer_info.offset = 0;
-    descriptor_buffer_info.range = buffer_size;
+    descriptor_buffer_info.range = vert_ubo_buffer_size;
 
     VkWriteDescriptorSet descriptor_write = {};
     descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1006,17 +1029,48 @@ bool App::InitDescriptors() {
 
     vkUpdateDescriptorSets(device_, 1, &descriptor_write, 0, nullptr);
   }
+
+  frag_ubo_buffers_.resize(swap_chain_images_.size());
+  frag_ubo_buffers_memory_.resize(swap_chain_images_.size());
+
+  VkDeviceSize frag_ubo_buffer_size =
+      sizeof(utils::Material) * model_.materials.size();
+
+  for (size_t i = 0; i < swap_chain_images_.size(); i++) {
+    CreateBuffer(frag_ubo_buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                     VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                 physical_device_, device_, &frag_ubo_buffers_[i],
+                 &frag_ubo_buffers_memory_[i]);
+
+    void* buffer_ptr;
+    vkMapMemory(device_, frag_ubo_buffers_memory_[i], 0, frag_ubo_buffer_size,
+                0, &buffer_ptr);
+    memcpy(buffer_ptr, model_.materials.data(), frag_ubo_buffer_size);
+    vkUnmapMemory(device_, frag_ubo_buffers_memory_[i]);
+
+    VkDescriptorBufferInfo descriptor_buffer_info = {};
+    descriptor_buffer_info.buffer = frag_ubo_buffers_[i];
+    descriptor_buffer_info.offset = 0;
+    descriptor_buffer_info.range = frag_ubo_buffer_size;
+
+    VkWriteDescriptorSet descriptor_write = {};
+    descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptor_write.dstSet = descriptor_sets_[i];
+    descriptor_write.dstBinding = 1;
+    descriptor_write.dstArrayElement = 0;
+    descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    descriptor_write.descriptorCount = 1;
+    descriptor_write.pBufferInfo = &descriptor_buffer_info;
+
+    vkUpdateDescriptorSets(device_, 1, &descriptor_write, 0, nullptr);
+  }
+
   return true;
 }
 
 bool App::InitBuffers() {
-  utils::Model model;
-  if (!utils::LoadModel("cornell_box.obj", &model)) {
-    std::cerr << "Could not load model." << std::endl;
-    return false;
-  }
-
-  VkDeviceSize vertex_buffer_size = sizeof(glm::vec3) * model.positions.size();
+  VkDeviceSize vertex_buffer_size = sizeof(glm::vec3) * model_.positions.size();
 
   CreateBuffer(vertex_buffer_size,
                VK_BUFFER_USAGE_TRANSFER_DST_BIT |
@@ -1024,11 +1078,11 @@ bool App::InitBuffers() {
                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, physical_device_,
                device_, &vertex_buffer_, &vertex_buffer_memory_);
 
-  UploadDataToBuffer(model.positions.data(), vertex_buffer_size,
+  UploadDataToBuffer(model_.positions.data(), vertex_buffer_size,
                      vertex_buffer_);
 
   VkDeviceSize material_idx_buffer_size = sizeof(uint32_t) *
-      model.material_indices.size();
+      model_.material_indices.size();
 
   CreateBuffer(material_idx_buffer_size,
                VK_BUFFER_USAGE_TRANSFER_DST_BIT |
@@ -1036,10 +1090,11 @@ bool App::InitBuffers() {
                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, physical_device_,
                device_, &material_idx_buffer_, &material_idx_buffer_memory_);
 
-  UploadDataToBuffer(model.material_indices.data(), material_idx_buffer_size,
+  UploadDataToBuffer(model_.material_indices.data(), material_idx_buffer_size,
                      material_idx_buffer_);
 
-  VkDeviceSize index_buffer_size = sizeof(uint16_t) * model.index_buffer.size();
+  VkDeviceSize index_buffer_size =
+      sizeof(uint16_t) * model_.index_buffer.size();
 
   CreateBuffer(vertex_buffer_size,
                VK_BUFFER_USAGE_TRANSFER_DST_BIT |
@@ -1047,10 +1102,8 @@ bool App::InitBuffers() {
                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, physical_device_,
                device_, &index_buffer_, &index_buffer_memory_);
 
-  UploadDataToBuffer(model.index_buffer.data(), index_buffer_size,
+  UploadDataToBuffer(model_.index_buffer.data(), index_buffer_size,
                      index_buffer_);
-
-  draw_num_vertices = model.index_buffer.size();
 
   return true;
 }
@@ -1147,7 +1200,7 @@ bool App::RecordCommandBuffers() {
 
     vkCmdDraw(command_buffer, 3, 1, 0, 0);
 
-    vkCmdDrawIndexed(command_buffer, draw_num_vertices, 1, 0, 0, 0);
+    vkCmdDrawIndexed(command_buffer, model_.index_buffer.size(), 1, 0, 0, 0);
 
     vkCmdEndRenderPass(command_buffer);
 
@@ -1203,8 +1256,13 @@ void App::Destroy() {
   vkFreeMemory(device_, vertex_buffer_memory_, nullptr);
 
   for (int i = 0; i < swap_chain_images_.size(); ++i) {
-    vkDestroyBuffer(device_, uniform_buffers_[i], nullptr);
-    vkFreeMemory(device_, uniform_buffers_memory_[i], nullptr);
+    vkDestroyBuffer(device_, frag_ubo_buffers_[i], nullptr);
+    vkFreeMemory(device_, frag_ubo_buffers_memory_[i], nullptr);
+  }
+
+  for (int i = 0; i < swap_chain_images_.size(); ++i) {
+    vkDestroyBuffer(device_, vert_ubo_buffers_[i], nullptr);
+    vkFreeMemory(device_, vert_ubo_buffers_memory_[i], nullptr);
   }
 
   vkDestroyDescriptorPool(device_, descriptor_pool_, nullptr);
@@ -1335,11 +1393,18 @@ bool App::RecreateSwapChain() {
   vkDeviceWaitIdle(device_);
 
   for (int i = 0; i < swap_chain_images_.size(); ++i) {
-    vkDestroyBuffer(device_, uniform_buffers_[i], nullptr);
-    vkFreeMemory(device_, uniform_buffers_memory_[i], nullptr);
+    vkDestroyBuffer(device_, frag_ubo_buffers_[i], nullptr);
+    vkFreeMemory(device_, frag_ubo_buffers_memory_[i], nullptr);
   }
-  uniform_buffers_.clear();
-  uniform_buffers_memory_.clear();
+  frag_ubo_buffers_.clear();
+  frag_ubo_buffers_memory_.clear();
+
+  for (int i = 0; i < swap_chain_images_.size(); ++i) {
+    vkDestroyBuffer(device_, vert_ubo_buffers_[i], nullptr);
+    vkFreeMemory(device_, vert_ubo_buffers_memory_[i], nullptr);
+  }
+  vert_ubo_buffers_.clear();
+  vert_ubo_buffers_memory_.clear();
 
   vkDestroyDescriptorPool(device_, descriptor_pool_, nullptr);
   descriptor_sets_.clear();
