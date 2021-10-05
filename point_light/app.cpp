@@ -350,16 +350,10 @@ std::optional<uint32_t> FindMemoryTypeIndex(
   return std::nullopt;
 }
 
-bool CreateImage(VkImageCreateInfo* image_info,
-                 VkMemoryPropertyFlags mem_properties,
-                 VkPhysicalDevice physical_device,VkDevice device,
-                 VkImage* image, VkDeviceMemory* memory) {
-  if (vkCreateImage(device, image_info, nullptr, image) != VK_SUCCESS)
-    return false;
-
-  VkMemoryRequirements mem_requirements;
-  vkGetImageMemoryRequirements(device, *image, &mem_requirements);
-
+bool AllocateMemoryForResource(VkMemoryPropertyFlags mem_properties,
+                               VkMemoryRequirements mem_requirements,
+                               VkPhysicalDevice physical_device,
+                               VkDevice device, VkDeviceMemory* memory) {
   std::optional<uint32_t> memory_type_index =
       FindMemoryTypeIndex(mem_requirements.memoryTypeBits, mem_properties,
                           physical_device);
@@ -372,6 +366,23 @@ bool CreateImage(VkImageCreateInfo* image_info,
   mem_alloc_info.memoryTypeIndex = memory_type_index.value();
 
   if (vkAllocateMemory(device, &mem_alloc_info, nullptr, memory) != VK_SUCCESS)
+    return false;
+
+  return true;
+}
+
+bool CreateImage(VkImageCreateInfo* image_info,
+                 VkMemoryPropertyFlags mem_properties,
+                 VkPhysicalDevice physical_device, VkDevice device,
+                 VkImage* image, VkDeviceMemory* memory) {
+  if (vkCreateImage(device, image_info, nullptr, image) != VK_SUCCESS)
+    return false;
+
+  VkMemoryRequirements mem_requirements;
+  vkGetImageMemoryRequirements(device, *image, &mem_requirements);
+
+  if (!AllocateMemoryForResource(mem_properties, mem_requirements,
+                                 physical_device, device, memory))
     return false;
 
   vkBindImageMemory(device, *image, *memory, 0);
@@ -395,21 +406,10 @@ bool CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
   VkMemoryRequirements mem_requirements;
   vkGetBufferMemoryRequirements(device, *buffer, &mem_requirements);
 
-  std::optional<uint32_t> memory_type_index =
-      FindMemoryTypeIndex(mem_requirements.memoryTypeBits, mem_properties,
-                          physical_device);
-  if (!memory_type_index.has_value())
+ if (!AllocateMemoryForResource(mem_properties, mem_requirements,
+                                 physical_device, device, memory))
     return false;
 
-  VkMemoryAllocateInfo mem_alloc_info = {};
-  mem_alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-  mem_alloc_info.allocationSize = mem_requirements.size;
-  mem_alloc_info.memoryTypeIndex = memory_type_index.value();
-
-  if (vkAllocateMemory(device, &mem_alloc_info, nullptr, memory)
-          != VK_SUCCESS) {
-    return false;
-  }
   vkBindBufferMemory(device, *buffer, *memory, 0);
 
   return true;
