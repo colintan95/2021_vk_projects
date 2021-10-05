@@ -24,8 +24,8 @@ private:
   bool CreateSwapChain();
   bool CreateRenderPass();
   bool CreatePipeline();
-  bool CreateShadowPipeline();
   bool CreateFramebuffers();
+  bool CreateShadowPipeline();
   bool CreateCommandPool();
   bool CreateCommandBuffers();
   bool CreateDescriptorPool();

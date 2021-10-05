@@ -481,10 +481,10 @@ bool App::Init() {
   if (!CreatePipeline())
     return false;
 
-  if (!CreateShadowPipeline())
+  if (!CreateFramebuffers())
     return false;
 
-  if (!CreateFramebuffers())
+  if (!CreateShadowPipeline())
     return false;
 
   if (!CreateCommandPool())
@@ -1010,34 +1010,6 @@ bool App::CreatePipeline() {
   return true;
 }
 
-bool App::CreateShadowPipeline() {
-  std::vector<std::string> shader_file_paths = {
-    "shadow_vert.spv", "shadow_frag.spv"
-  };
-  std::vector<VkShaderModule> shader_modules;
-  if (!CreateShaderModulesFromFiles(shader_file_paths, device_,
-                                    &shader_modules)) {
-    std::cerr << "Could not create shadow shader modules." << std::endl;
-    return false;
-  }
-
-  VkVertexInputBindingDescription position_binding = {};
-  position_binding.binding = 0;
-  position_binding.stride = sizeof(glm::vec3);
-  position_binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-  VkVertexInputAttributeDescription position_attrib_desc = {};
-  position_attrib_desc.binding = 0;
-  position_attrib_desc.location = 0;
-  position_attrib_desc.format = VK_FORMAT_R32G32B32_SFLOAT;
-  position_attrib_desc.offset = 0;
-
-  for (VkShaderModule shader_module : shader_modules) {
-    vkDestroyShaderModule(device_, shader_module, nullptr);
-  }
-  return true;
-}
-
 bool App::CreateFramebuffers() {
   VkFormat depth_format = FindDepthFormat(physical_device_);
   if (depth_format == VK_FORMAT_UNDEFINED) {
@@ -1081,6 +1053,34 @@ bool App::CreateFramebuffers() {
       std::cerr << "Could not create framebuffer." << std::endl;
       return false;
     }
+  }
+  return true;
+}
+
+bool App::CreateShadowPipeline() {
+  std::vector<std::string> shader_file_paths = {
+    "shadow_vert.spv", "shadow_frag.spv"
+  };
+  std::vector<VkShaderModule> shader_modules;
+  if (!CreateShaderModulesFromFiles(shader_file_paths, device_,
+                                    &shader_modules)) {
+    std::cerr << "Could not create shadow shader modules." << std::endl;
+    return false;
+  }
+
+  VkVertexInputBindingDescription position_binding = {};
+  position_binding.binding = 0;
+  position_binding.stride = sizeof(glm::vec3);
+  position_binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+  VkVertexInputAttributeDescription position_attrib_desc = {};
+  position_attrib_desc.binding = 0;
+  position_attrib_desc.location = 0;
+  position_attrib_desc.format = VK_FORMAT_R32G32B32_SFLOAT;
+  position_attrib_desc.offset = 0;
+
+  for (VkShaderModule shader_module : shader_modules) {
+    vkDestroyShaderModule(device_, shader_module, nullptr);
   }
   return true;
 }
@@ -1502,6 +1502,7 @@ void App::Destroy() {
   vkDestroyPipeline(device_, pipeline_, nullptr);
   vkDestroyPipelineLayout(device_, pipeline_layout_, nullptr);
   vkDestroyDescriptorSetLayout(device_, descriptor_set_layout_, nullptr);
+
   vkDestroyRenderPass(device_, render_pass_, nullptr);
   for (const auto& image_view : swap_chain_image_views_) {
     vkDestroyImageView(device_, image_view, nullptr);
@@ -1649,6 +1650,7 @@ bool App::RecreateSwapChain() {
   vkDestroyPipeline(device_, pipeline_, nullptr);
   vkDestroyPipelineLayout(device_, pipeline_layout_, nullptr);
   vkDestroyDescriptorSetLayout(device_, descriptor_set_layout_, nullptr);
+
   vkDestroyRenderPass(device_, render_pass_, nullptr);
   for (const auto& image_view : swap_chain_image_views_) {
     vkDestroyImageView(device_, image_view, nullptr);
@@ -1666,6 +1668,9 @@ bool App::RecreateSwapChain() {
     return false;
 
   if (!CreateFramebuffers())
+    return false;
+
+  if (!CreateShadowPipeline())
     return false;
 
   if (!CreateDescriptorPool())
