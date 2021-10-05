@@ -90,7 +90,7 @@ private:
   VkPipeline shadow_pipeline_;
   VkImage shadow_image_;
   VkDeviceMemory shadow_image_memory_;
-  VkImageView shadow_image_framebuffer_view_;
+  std::vector<VkImageView> shadow_image_framebuffer_views_;
   std::vector<VkFramebuffer> shadow_framebuffers_;
 
   VkCommandPool command_pool_;

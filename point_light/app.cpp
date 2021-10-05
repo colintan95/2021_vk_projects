@@ -24,6 +24,9 @@ const char* kRequiredDeviceExtensions[] = {
   VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
+constexpr int kShadowTextureWidth = 1024;
+constexpr int kShadowTextureHeight = 1024;
+
 constexpr int kMaxFramesInFlight = 3;
 
 bool SupportsValidationLayers() {
@@ -1170,14 +1173,14 @@ bool App::CreateShadowPipeline() {
   VkViewport viewport = {};
   viewport.x = 0.f;
   viewport.y = 0.f;
-  viewport.width = 1024.f;
-  viewport.height = 1024.f;
+  viewport.width = static_cast<float>(kShadowTextureWidth);
+  viewport.height = static_cast<float>(kShadowTextureHeight);
   viewport.minDepth = 0.f;
   viewport.maxDepth = 1.f;
 
   VkRect2D scissor = {};
   scissor.offset = {0, 0};
-  scissor.extent = {1024, 1024};
+  scissor.extent = {kShadowTextureWidth, kShadowTextureHeight};
 
   VkPipelineViewportStateCreateInfo viewport_info = {};
   viewport_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -1256,6 +1259,50 @@ bool App::CreateShadowFramebuffers() {
     return false;
   }
 
+  VkImageCreateInfo shadow_image_info = {};
+  shadow_image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+  shadow_image_info.imageType = VK_IMAGE_TYPE_2D;
+  shadow_image_info.extent.width = kShadowTextureWidth;
+  shadow_image_info.extent.height = kShadowTextureHeight;
+  shadow_image_info.extent.depth = 1;
+  shadow_image_info.mipLevels = 1;
+  shadow_image_info.arrayLayers = 6;
+  shadow_image_info.format = depth_format;
+  shadow_image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
+  shadow_image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  shadow_image_info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
+      VK_IMAGE_USAGE_SAMPLED_BIT;
+  shadow_image_info.samples = VK_SAMPLE_COUNT_1_BIT;
+  shadow_image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+  if (!CreateImage(&shadow_image_info, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                   physical_device_, device_, &shadow_image_,
+                   &shadow_image_memory_)) {
+    std::cerr << "Could not create shadow image." << std::endl;
+    return false;
+  }
+
+  shadow_image_framebuffer_views_.resize(6);
+
+  for (int i = 0; i < shadow_image_framebuffer_views_.size(); ++i) {
+    VkImageViewCreateInfo image_view_info = {};
+    image_view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    image_view_info.image = shadow_image_;
+    image_view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    image_view_info.format = depth_format;
+    image_view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    image_view_info.subresourceRange.baseMipLevel = 0;
+    image_view_info.subresourceRange.levelCount = 1;
+    image_view_info.subresourceRange.baseArrayLayer = i;
+    image_view_info.subresourceRange.layerCount = 1;
+
+    if (vkCreateImageView(device_, &image_view_info, nullptr,
+                          &shadow_image_framebuffer_views_[i]) != VK_SUCCESS) {
+      std::cerr << "Could not create shadow image framebuffer view."
+                << std::endl;
+      return false;
+    }
+  }
   return true;
 }
 
@@ -1704,6 +1751,12 @@ void App::Destroy() {
   vkDestroyDescriptorPool(device_, descriptor_pool_, nullptr);
   vkDestroyCommandPool(device_, command_pool_, nullptr);
 
+  for (VkImageView image_view : shadow_image_framebuffer_views_) {
+    vkDestroyImageView(device_, image_view, nullptr);
+  }
+  vkDestroyImage(device_, shadow_image_, nullptr);
+  vkFreeMemory(device_, shadow_image_memory_, nullptr);
+
   vkDestroyPipeline(device_, shadow_pipeline_, nullptr);
   vkDestroyPipelineLayout(device_, shadow_pipeline_layout_, nullptr);
   vkDestroyDescriptorSetLayout(device_, shadow_descriptor_layout_, nullptr);
@@ -1712,7 +1765,6 @@ void App::Destroy() {
   for (const auto& framebuffer : swap_chain_framebuffers_) {
     vkDestroyFramebuffer(device_, framebuffer, nullptr);
   }
-
   vkDestroyImageView(device_, depth_image_view_, nullptr);
   vkDestroyImage(device_, depth_image_, nullptr);
   vkFreeMemory(device_, depth_image_memory_, nullptr);
@@ -1856,6 +1908,13 @@ bool App::RecreateSwapChain() {
   vkDestroyDescriptorPool(device_, descriptor_pool_, nullptr);
   descriptor_sets_.clear();
 
+  for (VkImageView image_view : shadow_image_framebuffer_views_) {
+    vkDestroyImageView(device_, image_view, nullptr);
+  }
+  shadow_image_framebuffer_views_.clear();
+  vkDestroyImage(device_, shadow_image_, nullptr);
+  vkFreeMemory(device_, shadow_image_memory_, nullptr);
+
   vkDestroyPipeline(device_, shadow_pipeline_, nullptr);
   vkDestroyPipelineLayout(device_, shadow_pipeline_layout_, nullptr);
   vkDestroyDescriptorSetLayout(device_, shadow_descriptor_layout_, nullptr);
@@ -1897,6 +1956,9 @@ bool App::RecreateSwapChain() {
     return false;
 
   if (!CreateShadowPipeline())
+    return false;
+
+  if (!CreateShadowFramebuffers())
     return false;
 
   if (!CreateDescriptorPool())
