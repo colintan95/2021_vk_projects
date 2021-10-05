@@ -382,17 +382,11 @@ bool CreateImage(VkImageCreateInfo* image_info,
   return true;
 }
 
-bool CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage,
+bool CreateBuffer(VkBufferCreateInfo* buffer_info,
                   VkMemoryPropertyFlags mem_properties,
                   VkPhysicalDevice physical_device, VkDevice device,
                   VkBuffer* buffer, VkDeviceMemory* memory) {
-  VkBufferCreateInfo buffer_info = {};
-  buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-  buffer_info.size = size;
-  buffer_info.usage = usage;
-  buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-  if (vkCreateBuffer(device, &buffer_info, nullptr, buffer) != VK_SUCCESS)
+  if (vkCreateBuffer(device, buffer_info, nullptr, buffer) != VK_SUCCESS)
     return false;
 
   VkMemoryRequirements mem_requirements;
@@ -1369,7 +1363,13 @@ bool App::InitDescriptors() {
   VkDeviceSize vert_ubo_buffer_size = sizeof(VertexShaderUbo);
 
   for (size_t i = 0; i < swap_chain_images_.size(); i++) {
-    CreateBuffer(vert_ubo_buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+    VkBufferCreateInfo vert_ubo_buffer_info = {};
+    vert_ubo_buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    vert_ubo_buffer_info.size = vert_ubo_buffer_size;
+    vert_ubo_buffer_info.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+    vert_ubo_buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    CreateBuffer(&vert_ubo_buffer_info,
                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                      VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                  physical_device_, device_, &vert_ubo_buffers_[i],
@@ -1423,7 +1423,13 @@ bool App::InitDescriptors() {
   VkDeviceSize frag_ubo_buffer_size = sizeof(FragmentShaderUbo);
 
   for (size_t i = 0; i < swap_chain_images_.size(); i++) {
-    CreateBuffer(frag_ubo_buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+    VkBufferCreateInfo vert_ubo_buffer_info = {};
+    vert_ubo_buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    vert_ubo_buffer_info.size = frag_ubo_buffer_size;
+    vert_ubo_buffer_info.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+    vert_ubo_buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    CreateBuffer(&vert_ubo_buffer_info,
                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                      VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                  physical_device_, device_, &frag_ubo_buffers_[i],
@@ -1456,50 +1462,70 @@ bool App::InitDescriptors() {
 }
 
 bool App::InitBuffers() {
-  VkDeviceSize position_buffer_size =
+  VkDeviceSize pos_buffer_size =
       sizeof(glm::vec3) * model_.positions.size();
 
-  CreateBuffer(position_buffer_size,
-               VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-                   VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-               VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, physical_device_,
-               device_, &position_buffer_, &position_buffer_memory_);
+  VkBufferCreateInfo pos_buffer_info = {};
+  pos_buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+  pos_buffer_info.size = pos_buffer_size;
+  pos_buffer_info.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+  pos_buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-  UploadDataToBuffer(model_.positions.data(), position_buffer_size,
+  CreateBuffer(&pos_buffer_info, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+               physical_device_, device_, &position_buffer_,
+               &position_buffer_memory_);
+
+  UploadDataToBuffer(model_.positions.data(), pos_buffer_size,
                      position_buffer_);
 
   VkDeviceSize normal_buffer_size =
       sizeof(glm::vec3) * model_.normals.size();
 
-  CreateBuffer(normal_buffer_size,
-               VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-                   VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-               VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, physical_device_,
-               device_, &normal_buffer_, &normal_buffer_memory_);
+  VkBufferCreateInfo normal_buffer_info = {};
+  normal_buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+  normal_buffer_info.size = normal_buffer_size;
+  normal_buffer_info.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+  normal_buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+  CreateBuffer(&normal_buffer_info, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+               physical_device_, device_, &normal_buffer_,
+               &normal_buffer_memory_);
 
   UploadDataToBuffer(model_.normals.data(), normal_buffer_size,
                      normal_buffer_);
 
-  VkDeviceSize material_idx_buffer_size = sizeof(uint32_t) *
-      model_.material_indices.size();
+  VkDeviceSize mtl_idx_buffer_size =
+      sizeof(uint32_t) * model_.material_indices.size();
 
-  CreateBuffer(material_idx_buffer_size,
-               VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-                   VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-               VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, physical_device_,
-               device_, &material_idx_buffer_, &material_idx_buffer_memory_);
+  VkBufferCreateInfo mtl_idx_buffer_info = {};
+  mtl_idx_buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+  mtl_idx_buffer_info.size = mtl_idx_buffer_size;
+  mtl_idx_buffer_info.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+  mtl_idx_buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-  UploadDataToBuffer(model_.material_indices.data(), material_idx_buffer_size,
+  CreateBuffer(&mtl_idx_buffer_info, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+               physical_device_, device_, &material_idx_buffer_,
+               &material_idx_buffer_memory_);
+
+  UploadDataToBuffer(model_.material_indices.data(), mtl_idx_buffer_size,
                      material_idx_buffer_);
 
   VkDeviceSize index_buffer_size =
       sizeof(uint16_t) * model_.index_buffer.size();
 
-  CreateBuffer(index_buffer_size,
-               VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-                   VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-               VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, physical_device_,
-               device_, &index_buffer_, &index_buffer_memory_);
+  VkBufferCreateInfo index_buffer_info = {};
+  index_buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+  index_buffer_info.size = index_buffer_size;
+  index_buffer_info.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+      VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+  index_buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+  CreateBuffer(&index_buffer_info, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+               physical_device_, device_, &index_buffer_,
+               &index_buffer_memory_);
 
   UploadDataToBuffer(model_.index_buffer.data(), index_buffer_size,
                      index_buffer_);
@@ -1525,7 +1551,14 @@ void App::UploadDataToBuffer(void* data, VkDeviceSize size, VkBuffer buffer) {
 
   VkBuffer staging_buffer;
   VkDeviceMemory staging_buffer_memory;
-  CreateBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+
+  VkBufferCreateInfo staging_buffer_info = {};
+  staging_buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+  staging_buffer_info.size = size;
+  staging_buffer_info.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+  staging_buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+  CreateBuffer(&staging_buffer_info,
                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                    VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                physical_device_, device_, &staging_buffer,
