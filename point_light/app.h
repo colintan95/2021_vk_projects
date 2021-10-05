@@ -59,30 +59,38 @@ private:
   VkDevice device_;
   VkQueue graphics_queue_;
   VkQueue present_queue_;
+
   VkSwapchainKHR swap_chain_;
   std::vector<VkImage> swap_chain_images_;
   VkFormat swap_chain_image_format_;
   VkExtent2D swap_chain_extent_;
   std::vector<VkImageView> swap_chain_image_views_;
+
   VkRenderPass render_pass_;
   VkDescriptorSetLayout descriptor_set_layout_;
   VkPipelineLayout pipeline_layout_;
   VkPipeline pipeline_;
   std::vector<VkFramebuffer> swap_chain_framebuffers_;
+
   VkCommandPool command_pool_;
   std::vector<VkCommandBuffer> command_buffers_;
   VkDescriptorPool descriptor_pool_;
   std::vector<VkDescriptorSet> descriptor_sets_;
+
   std::vector<VkBuffer> vert_ubo_buffers_;
   std::vector<VkDeviceMemory> vert_ubo_buffers_memory_;
   std::vector<VkBuffer> frag_ubo_buffers_;
   std::vector<VkDeviceMemory> frag_ubo_buffers_memory_;
-  VkBuffer vertex_buffer_;
-  VkDeviceMemory vertex_buffer_memory_;
+
+  VkBuffer position_buffer_;
+  VkDeviceMemory position_buffer_memory_;
+  VkBuffer normal_buffer_;
+  VkDeviceMemory normal_buffer_memory_;
   VkBuffer material_idx_buffer_;
   VkDeviceMemory material_idx_buffer_memory_;
   VkBuffer index_buffer_;
   VkDeviceMemory index_buffer_memory_;
+
   std::vector<VkSemaphore> image_ready_semaphores_;
   std::vector<VkSemaphore> render_complete_semaphores_;
   std::vector<VkFence> frame_ready_fences_;

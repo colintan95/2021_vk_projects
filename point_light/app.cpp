@@ -753,31 +753,42 @@ std::vector<char> vert_shader_data = LoadShaderFile("shader_vert.spv");
   position_attrib_desc.format = VK_FORMAT_R32G32B32_SFLOAT;
   position_attrib_desc.offset = 0;
 
+  VkVertexInputBindingDescription normal_binding = {};
+  normal_binding.binding = 1;
+  normal_binding.stride = sizeof(glm::vec3);
+  normal_binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+  VkVertexInputAttributeDescription normal_attrib_desc = {};
+  normal_attrib_desc.binding = 1;
+  normal_attrib_desc.location = 1;
+  normal_attrib_desc.format = VK_FORMAT_R32G32B32_SFLOAT;
+  normal_attrib_desc.offset = 0;
+
   VkVertexInputBindingDescription mtl_idx_binding = {};
-  mtl_idx_binding.binding = 1;
+  mtl_idx_binding.binding = 2;
   mtl_idx_binding.stride = sizeof(uint32_t);
   mtl_idx_binding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
   VkVertexInputAttributeDescription mtl_idx_attrib_desc = {};
-  mtl_idx_attrib_desc.binding = 1;
-  mtl_idx_attrib_desc.location = 1;
+  mtl_idx_attrib_desc.binding = 2;
+  mtl_idx_attrib_desc.location = 2;
   mtl_idx_attrib_desc.format = VK_FORMAT_R32_UINT;
   mtl_idx_attrib_desc.offset = 0;
 
   VkVertexInputBindingDescription vertex_bindings[] = {
-    position_binding, mtl_idx_binding
+    position_binding, normal_binding, mtl_idx_binding
   };
 
   VkVertexInputAttributeDescription vertex_attribs[] = {
-    position_attrib_desc, mtl_idx_attrib_desc
+    position_attrib_desc, normal_attrib_desc, mtl_idx_attrib_desc
   };
 
   VkPipelineVertexInputStateCreateInfo vertex_input = {};
   vertex_input.sType =
       VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-  vertex_input.vertexBindingDescriptionCount = 2;
+  vertex_input.vertexBindingDescriptionCount = 3;
   vertex_input.pVertexBindingDescriptions = vertex_bindings;
-  vertex_input.vertexAttributeDescriptionCount = 2;
+  vertex_input.vertexAttributeDescriptionCount = 3;
   vertex_input.pVertexAttributeDescriptions = vertex_attribs;
 
   VkPipelineInputAssemblyStateCreateInfo input_assembly = {};
@@ -981,6 +992,7 @@ bool App::LoadModel() {
 
 bool App::InitDescriptors() {
   struct VertexShaderUbo {
+    glm::mat4 model_mat;
     glm::mat4 mvp_mat;
   } vert_ubo_data;
 
@@ -993,6 +1005,7 @@ bool App::InitDescriptors() {
   glm::mat4 proj_mat = glm::perspective(45.f, aspect_ratio, 0.1f, 100.f);
   proj_mat[1][1] *= -1;
 
+  vert_ubo_data.model_mat = model_mat;
   vert_ubo_data.mvp_mat = proj_mat * view_mat * model_mat;
 
   vert_ubo_buffers_.resize(swap_chain_images_.size());
@@ -1036,11 +1049,11 @@ bool App::InitDescriptors() {
   };
 
   struct FragmentShaderUbo {
-    glm::vec4 light_position;
+    glm::vec4 light_pos;
     Material materials[20];
   } frag_ubo_data;
 
-  frag_ubo_data.light_position = glm::vec4(0.f, 0.f, 0.9f, 0.f);
+  frag_ubo_data.light_pos = glm::vec4(0.f, 0.f, 0.9f, 0.f);
 
   for (int i = 0; i < model_.materials.size(); ++i) {
     frag_ubo_data.materials[i].ambient_color =
@@ -1088,16 +1101,29 @@ bool App::InitDescriptors() {
 }
 
 bool App::InitBuffers() {
-  VkDeviceSize vertex_buffer_size = sizeof(glm::vec3) * model_.positions.size();
+  VkDeviceSize position_buffer_size =
+      sizeof(glm::vec3) * model_.positions.size();
 
-  CreateBuffer(vertex_buffer_size,
+  CreateBuffer(position_buffer_size,
                VK_BUFFER_USAGE_TRANSFER_DST_BIT |
                    VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, physical_device_,
-               device_, &vertex_buffer_, &vertex_buffer_memory_);
+               device_, &position_buffer_, &position_buffer_memory_);
 
-  UploadDataToBuffer(model_.positions.data(), vertex_buffer_size,
-                     vertex_buffer_);
+  UploadDataToBuffer(model_.positions.data(), position_buffer_size,
+                     position_buffer_);
+
+  VkDeviceSize normal_buffer_size =
+      sizeof(glm::vec3) * model_.normals.size();
+
+  CreateBuffer(normal_buffer_size,
+               VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                   VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+               VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, physical_device_,
+               device_, &normal_buffer_, &normal_buffer_memory_);
+
+  UploadDataToBuffer(model_.normals.data(), normal_buffer_size,
+                     normal_buffer_);
 
   VkDeviceSize material_idx_buffer_size = sizeof(uint32_t) *
       model_.material_indices.size();
@@ -1114,7 +1140,7 @@ bool App::InitBuffers() {
   VkDeviceSize index_buffer_size =
       sizeof(uint16_t) * model_.index_buffer.size();
 
-  CreateBuffer(vertex_buffer_size,
+  CreateBuffer(index_buffer_size,
                VK_BUFFER_USAGE_TRANSFER_DST_BIT |
                    VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, physical_device_,
@@ -1209,9 +1235,11 @@ bool App::RecordCommandBuffers() {
                             pipeline_layout_, 0, 1, &descriptor_sets_[i], 0,
                             nullptr);
 
-    VkBuffer vertex_buffers[] = { vertex_buffer_, material_idx_buffer_ };
-    VkDeviceSize offsets[] = { 0, 0 };
-    vkCmdBindVertexBuffers(command_buffer, 0, 2, vertex_buffers, offsets);
+    VkBuffer vertex_buffers[] = {
+      position_buffer_, normal_buffer_, material_idx_buffer_
+    };
+    VkDeviceSize offsets[] = { 0, 0, 0 };
+    vkCmdBindVertexBuffers(command_buffer, 0, 3, vertex_buffers, offsets);
 
     vkCmdBindIndexBuffer(command_buffer, index_buffer_, 0,
                          VK_INDEX_TYPE_UINT16);
@@ -1270,8 +1298,11 @@ void App::Destroy() {
   vkDestroyBuffer(device_, material_idx_buffer_, nullptr);
   vkFreeMemory(device_, material_idx_buffer_memory_, nullptr);
 
-  vkDestroyBuffer(device_, vertex_buffer_, nullptr);
-  vkFreeMemory(device_, vertex_buffer_memory_, nullptr);
+  vkDestroyBuffer(device_, normal_buffer_, nullptr);
+  vkFreeMemory(device_, normal_buffer_memory_, nullptr);
+
+  vkDestroyBuffer(device_, position_buffer_, nullptr);
+  vkFreeMemory(device_, position_buffer_memory_, nullptr);
 
   for (int i = 0; i < swap_chain_images_.size(); ++i) {
     vkDestroyBuffer(device_, frag_ubo_buffers_[i], nullptr);
