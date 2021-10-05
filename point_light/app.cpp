@@ -333,30 +333,22 @@ bool CreateShaderModulesFromFiles(const std::vector<std::string>& file_paths,
   return true;
 }
 
-std::optional<uint32_t> FindMemoryTypeIndex(
-    uint32_t memory_type_bits,
-    VkMemoryPropertyFlags mem_properties,
-    VkPhysicalDevice physical_device) {
-  VkPhysicalDeviceMemoryProperties phys_device_mem_props;
-  vkGetPhysicalDeviceMemoryProperties(physical_device, &phys_device_mem_props);
-
-  for (int i = 0; i < phys_device_mem_props.memoryTypeCount; i++) {
-    if ((memory_type_bits & (1 << i)) &&
-        (phys_device_mem_props.memoryTypes[i].propertyFlags & mem_properties)
-             == mem_properties) {
-      return i;
-    }
-  }
-  return std::nullopt;
-}
-
 bool AllocateMemoryForResource(VkMemoryPropertyFlags mem_properties,
                                VkMemoryRequirements mem_requirements,
                                VkPhysicalDevice physical_device,
                                VkDevice device, VkDeviceMemory* memory) {
-  std::optional<uint32_t> memory_type_index =
-      FindMemoryTypeIndex(mem_requirements.memoryTypeBits, mem_properties,
-                          physical_device);
+  VkPhysicalDeviceMemoryProperties phys_device_mem_props;
+  vkGetPhysicalDeviceMemoryProperties(physical_device, &phys_device_mem_props);
+
+  std::optional<uint32_t> memory_type_index;
+  for (int i = 0; i < phys_device_mem_props.memoryTypeCount; i++) {
+    if ((mem_requirements.memoryTypeBits & (1 << i)) &&
+        (phys_device_mem_props.memoryTypes[i].propertyFlags & mem_properties)
+             == mem_properties) {
+      memory_type_index = i;
+      break;
+    }
+  }
   if (!memory_type_index.has_value())
     return false;
 
