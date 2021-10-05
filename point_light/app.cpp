@@ -980,25 +980,25 @@ bool App::LoadModel() {
 }
 
 bool App::InitDescriptors() {
-  struct UniformBufferData {
+  struct VertexShaderUbo {
     glm::mat4 mvp_mat;
-  } uniform_buffer_data;
+  };
 
   float aspect_ratio = static_cast<float>(swap_chain_extent_.width) /
       static_cast<float>(swap_chain_extent_.height);
 
   glm::mat4 model_mat = glm::mat4(1.f);
   glm::mat4 view_mat = glm::translate(glm::mat4(1.f),
-                                      glm::vec3(0.f, -1.f, -5.f));
+                                      glm::vec3(0.f, -1.f, -3.5f));
   glm::mat4 proj_mat = glm::perspective(45.f, aspect_ratio, 0.1f, 100.f);
   proj_mat[1][1] *= -1;
 
-  uniform_buffer_data.mvp_mat = proj_mat * view_mat * model_mat;
+  glm::mat4 mvp_mat = proj_mat * view_mat * model_mat;
 
   vert_ubo_buffers_.resize(swap_chain_images_.size());
   vert_ubo_buffers_memory_.resize(swap_chain_images_.size());
 
-  VkDeviceSize vert_ubo_buffer_size = sizeof(uniform_buffer_data);
+  VkDeviceSize vert_ubo_buffer_size = sizeof(VertexShaderUbo);
 
   for (size_t i = 0; i < swap_chain_images_.size(); i++) {
     CreateBuffer(vert_ubo_buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -1007,10 +1007,10 @@ bool App::InitDescriptors() {
                  physical_device_, device_, &vert_ubo_buffers_[i],
                  &vert_ubo_buffers_memory_[i]);
 
-    void* buffer_ptr;
+    VertexShaderUbo* ubo_ptr;
     vkMapMemory(device_, vert_ubo_buffers_memory_[i], 0, vert_ubo_buffer_size,
-                0, &buffer_ptr);
-    memcpy(buffer_ptr, &uniform_buffer_data, vert_ubo_buffer_size);
+                0, reinterpret_cast<void**>(&ubo_ptr));
+    ubo_ptr->mvp_mat = mvp_mat;
     vkUnmapMemory(device_, vert_ubo_buffers_memory_[i]);
 
     VkDescriptorBufferInfo descriptor_buffer_info = {};
@@ -1030,11 +1030,14 @@ bool App::InitDescriptors() {
     vkUpdateDescriptorSets(device_, 1, &descriptor_write, 0, nullptr);
   }
 
+  struct FragmentShaderUbo {
+    utils::Material materials[20];
+  };
+
   frag_ubo_buffers_.resize(swap_chain_images_.size());
   frag_ubo_buffers_memory_.resize(swap_chain_images_.size());
 
-  VkDeviceSize frag_ubo_buffer_size =
-      sizeof(utils::Material) * model_.materials.size();
+  VkDeviceSize frag_ubo_buffer_size = sizeof(FragmentShaderUbo);
 
   for (size_t i = 0; i < swap_chain_images_.size(); i++) {
     CreateBuffer(frag_ubo_buffer_size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
@@ -1043,10 +1046,11 @@ bool App::InitDescriptors() {
                  physical_device_, device_, &frag_ubo_buffers_[i],
                  &frag_ubo_buffers_memory_[i]);
 
-    void* buffer_ptr;
+    FragmentShaderUbo* ubo_ptr;
     vkMapMemory(device_, frag_ubo_buffers_memory_[i], 0, frag_ubo_buffer_size,
-                0, &buffer_ptr);
-    memcpy(buffer_ptr, model_.materials.data(), frag_ubo_buffer_size);
+                0, reinterpret_cast<void**>(&ubo_ptr));
+    memcpy(ubo_ptr->materials, model_.materials.data(),
+           sizeof(utils::Material) * model_.materials.size());
     vkUnmapMemory(device_, frag_ubo_buffers_memory_[i]);
 
     VkDescriptorBufferInfo descriptor_buffer_info = {};
