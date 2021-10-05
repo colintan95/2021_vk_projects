@@ -376,7 +376,6 @@ bool CreateImage(VkImageCreateInfo* image_info,
   if (!AllocateMemoryForResource(mem_properties, mem_requirements,
                                  physical_device, device, memory))
     return false;
-
   vkBindImageMemory(device, *image, *memory, 0);
 
   return true;
@@ -395,7 +394,6 @@ bool CreateBuffer(VkBufferCreateInfo* buffer_info,
  if (!AllocateMemoryForResource(mem_properties, mem_requirements,
                                  physical_device, device, memory))
     return false;
-
   vkBindBufferMemory(device, *buffer, *memory, 0);
 
   return true;
