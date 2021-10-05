@@ -29,6 +29,7 @@ private:
 
   bool CreateShadowRenderPass();
   bool CreateShadowPipeline();
+  bool CreateShadowFramebuffers();
 
   bool CreateCommandPool();
   bool CreateCommandBuffers();
@@ -87,6 +88,10 @@ private:
   VkDescriptorSetLayout shadow_descriptor_layout_;
   VkPipelineLayout shadow_pipeline_layout_;
   VkPipeline shadow_pipeline_;
+  VkImage shadow_image_;
+  VkDeviceMemory shadow_image_memory_;
+  VkImageView shadow_image_framebuffer_view_;
+  std::vector<VkFramebuffer> shadow_framebuffers_;
 
   VkCommandPool command_pool_;
   std::vector<VkCommandBuffer> command_buffers_;

@@ -350,27 +350,11 @@ std::optional<uint32_t> FindMemoryTypeIndex(
   return std::nullopt;
 }
 
-bool CreateImage(uint32_t width, uint32_t height, VkFormat format,
-                 VkImageTiling tiling, VkImageUsageFlags usage,
+bool CreateImage(VkImageCreateInfo* image_info,
                  VkMemoryPropertyFlags mem_properties,
                  VkPhysicalDevice physical_device,VkDevice device,
                  VkImage* image, VkDeviceMemory* memory) {
-  VkImageCreateInfo image_info = {};
-  image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-  image_info.imageType = VK_IMAGE_TYPE_2D;
-  image_info.extent.width = width;
-  image_info.extent.height = height;
-  image_info.extent.depth = 1;
-  image_info.mipLevels = 1;
-  image_info.arrayLayers = 1;
-  image_info.format = format;
-  image_info.tiling = tiling;
-  image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  image_info.usage = usage;
-  image_info.samples = VK_SAMPLE_COUNT_1_BIT;
-  image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-  if (vkCreateImage(device, &image_info, nullptr, image) != VK_SUCCESS)
+  if (vkCreateImage(device, image_info, nullptr, image) != VK_SUCCESS)
     return false;
 
   VkMemoryRequirements mem_requirements;
@@ -392,27 +376,6 @@ bool CreateImage(uint32_t width, uint32_t height, VkFormat format,
 
   vkBindImageMemory(device, *image, *memory, 0);
 
-  return true;
-}
-
-bool CreateImageView(VkImage image, VkFormat format,
-                     VkImageAspectFlags aspect_flags, VkDevice device,
-                     VkImageView* image_view) {
-  VkImageViewCreateInfo image_view_info = {};
-  image_view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-  image_view_info.image = image;
-  image_view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-  image_view_info.format = format;
-  image_view_info.subresourceRange.aspectMask = aspect_flags;
-  image_view_info.subresourceRange.baseMipLevel = 0;
-  image_view_info.subresourceRange.levelCount = 1;
-  image_view_info.subresourceRange.baseArrayLayer = 0;
-  image_view_info.subresourceRange.layerCount = 1;
-
-  if (vkCreateImageView(device, &image_view_info, nullptr, image_view)
-          != VK_SUCCESS) {
-    return false;
-  }
   return true;
 }
 
@@ -488,6 +451,9 @@ bool App::Init() {
     return false;
 
   if (!CreateShadowPipeline())
+    return false;
+
+  if (!CreateShadowFramebuffers())
     return false;
 
   if (!CreateCommandPool())
@@ -717,8 +683,18 @@ bool App::CreateSwapChain() {
   swap_chain_image_views_.resize(swap_chain_images_.size());
 
   for (int i = 0; i < swap_chain_images_.size(); ++i) {
-    if (!CreateImageView(swap_chain_images_[i], swap_chain_image_format_,
-                         VK_IMAGE_ASPECT_COLOR_BIT, device_,
+    VkImageViewCreateInfo image_view_info = {};
+    image_view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    image_view_info.image = swap_chain_images_[i];
+    image_view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    image_view_info.format = swap_chain_image_format_;
+    image_view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    image_view_info.subresourceRange.baseMipLevel = 0;
+    image_view_info.subresourceRange.levelCount = 1;
+    image_view_info.subresourceRange.baseArrayLayer = 0;
+    image_view_info.subresourceRange.layerCount = 1;
+
+    if (vkCreateImageView(device_, &image_view_info, nullptr,
                          &swap_chain_image_views_[i]) != VK_SUCCESS) {
       std::cerr << "Could not create swap chain image view." << std::endl;
       return false;
@@ -1020,17 +996,41 @@ bool App::CreateFramebuffers() {
     return false;
   }
 
-  if (!CreateImage(swap_chain_extent_.width, swap_chain_extent_.height,
-                   depth_format, VK_IMAGE_TILING_OPTIMAL,
-                   VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-                   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, physical_device_,
-                   device_, &depth_image_, &depth_image_memory_)) {
+  VkImageCreateInfo depth_image_info = {};
+  depth_image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+  depth_image_info.imageType = VK_IMAGE_TYPE_2D;
+  depth_image_info.extent.width = swap_chain_extent_.width;
+  depth_image_info.extent.height = swap_chain_extent_.height;
+  depth_image_info.extent.depth = 1;
+  depth_image_info.mipLevels = 1;
+  depth_image_info.arrayLayers = 1;
+  depth_image_info.format = depth_format;
+  depth_image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
+  depth_image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  depth_image_info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+  depth_image_info.samples = VK_SAMPLE_COUNT_1_BIT;
+  depth_image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+  if (!CreateImage(&depth_image_info, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                   physical_device_, device_, &depth_image_,
+                   &depth_image_memory_)) {
     std::cerr << "Could not create depth image." << std::endl;
     return false;
   }
 
-  if (!CreateImageView(depth_image_, depth_format, VK_IMAGE_ASPECT_DEPTH_BIT,
-                       device_, &depth_image_view_)) {
+  VkImageViewCreateInfo depth_image_view_info = {};
+  depth_image_view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+  depth_image_view_info.image = depth_image_;
+  depth_image_view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+  depth_image_view_info.format = depth_format;
+  depth_image_view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+  depth_image_view_info.subresourceRange.baseMipLevel = 0;
+  depth_image_view_info.subresourceRange.levelCount = 1;
+  depth_image_view_info.subresourceRange.baseArrayLayer = 0;
+  depth_image_view_info.subresourceRange.layerCount = 1;
+
+  if (vkCreateImageView(device_, &depth_image_view_info, nullptr,
+                        &depth_image_view_) != VK_SUCCESS) {
     std::cerr << "Could not create depth image view." << std::endl;
     return false;
   }
@@ -1262,6 +1262,16 @@ bool App::CreateShadowPipeline() {
   for (VkShaderModule shader_module : shader_modules) {
     vkDestroyShaderModule(device_, shader_module, nullptr);
   }
+  return true;
+}
+
+bool App::CreateShadowFramebuffers() {
+  VkFormat depth_format = FindDepthFormat(physical_device_);
+  if (depth_format == VK_FORMAT_UNDEFINED) {
+    std::cerr << "Could not find suitable depth format." << std::endl;
+    return false;
+  }
+
   return true;
 }
 
