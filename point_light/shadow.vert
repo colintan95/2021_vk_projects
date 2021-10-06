@@ -2,10 +2,10 @@
 
 layout(location = 0) in vec3 vert_pos;
 
-layout(binding = 0) uniform UniformBufferObject {
+layout(push_constant) uniform ConstantBlock {
   mat4 shadow_mat;
-} ubo;
+} cb;
 
 void main() {
-  gl_Position = ubo.shadow_mat * vec4(vert_pos, 1.0);
+  gl_Position = cb.shadow_mat * vec4(vert_pos, 1.0);
 }

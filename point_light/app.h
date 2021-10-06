@@ -4,6 +4,8 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#include <glm/glm.hpp>
+
 #include <vector>
 
 #include "utils/model.h"
@@ -54,6 +56,7 @@ private:
   int current_frame_ = 0;
 
   utils::Model model_;
+  std::vector<glm::mat4> shadow_mats_;
 
   uint32_t graphics_queue_index_;
   uint32_t present_queue_index_;
@@ -89,10 +92,15 @@ private:
   VkDescriptorSetLayout shadow_descriptor_layout_;
   VkPipelineLayout shadow_pipeline_layout_;
   VkPipeline shadow_pipeline_;
-  VkImage shadow_image_;
-  VkDeviceMemory shadow_image_memory_;
-  std::vector<VkImageView> shadow_image_framebuffer_views_;
-  std::vector<VkFramebuffer> shadow_framebuffers_;
+
+  struct ShadowPassFrameResource {
+    VkImage shadow_texture;
+    VkDeviceMemory shadow_texture_memory;
+    std::vector<VkImageView> depth_framebuffer_views;
+    std::vector<VkFramebuffer> depth_framebuffers;
+  };
+
+  std::vector<ShadowPassFrameResource> shadow_frame_resources_;
 
   VkCommandPool command_pool_;
   std::vector<VkCommandBuffer> command_buffers_;
