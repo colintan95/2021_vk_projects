@@ -413,6 +413,7 @@ bool App::Init() {
   glfwInit();
 
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+  glfwWindowHint(GLFW_SCALE_TO_MONITOR , GL_TRUE);
 
   window_ = glfwCreateWindow(800, 600, "Vulkan Application", nullptr, nullptr);
   glfwSetWindowUserPointer(window_, this);
@@ -1100,9 +1101,7 @@ bool App::CreateShadowRenderPass() {
   depth_attachment.format = depth_format;
   depth_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
   depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-  depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-  depth_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-  depth_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+  depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
   depth_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
   depth_attachment.finalLayout =
       VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
@@ -1462,8 +1461,9 @@ bool App::InitDescriptors() {
 
   glm::mat4 model_mat = glm::mat4(1.f);
   glm::mat4 view_mat = glm::translate(glm::mat4(1.f),
-                                      glm::vec3(0.f, -1.f, -3.5f));
-  glm::mat4 proj_mat = glm::perspective(45.f, aspect_ratio, 0.1f, 100.f);
+                                      glm::vec3(0.f, -1.f, -4.f));
+  glm::mat4 proj_mat = glm::perspective(glm::radians(45.f), aspect_ratio, 0.1f,
+                                        100.f);
   proj_mat[1][1] *= -1;
 
   glm::vec3 light_pos = glm::vec3(0.f, 1.9f, 0.f);
@@ -1474,26 +1474,29 @@ bool App::InitDescriptors() {
   glm::mat4 pos_z_view_mat =
       glm::rotate(glm::mat4(1.f), kPi, glm::vec3(0.f, 1.f, 0.f)) *
           glm::translate(glm::mat4(1.f), -light_pos);
-  glm::mat4 shadow_proj_mat = glm::perspective(90.f, shadow_tex_aspect_ratio,
+  glm::mat4 shadow_proj_mat = glm::perspective(glm::radians(90.f),
+                                               shadow_tex_aspect_ratio,
                                                kShadowPassNearPlane,
                                                kShadowPassFarPlane);
   shadow_proj_mat[1][1] *= -1;
 
+  // Cubemap faces are in left-handed coordinates. E.g. +x is to the right
+  // of +z in a cubemap while +x is to the left of +z in Vulkan.
   std::vector<glm::mat4> shadow_view_mats(6);
-  shadow_view_mats[0] =  // +x
-      glm::rotate(glm::mat4(1.f), -kPi / 2.f, glm::vec3(0.f, 1.f, 0.f)) *
-          pos_z_view_mat;
-  shadow_view_mats[1] =  // -x
+  shadow_view_mats[0] =  // Right (+x)
       glm::rotate(glm::mat4(1.f), kPi / 2.f, glm::vec3(0.f, 1.f, 0.f)) *
           pos_z_view_mat;
-  shadow_view_mats[2] =  // +y
+  shadow_view_mats[1] =  // Left (-x)
+      glm::rotate(glm::mat4(1.f), -kPi / 2.f, glm::vec3(0.f, 1.f, 0.f)) *
+          pos_z_view_mat;
+  shadow_view_mats[2] =  // Top (+y)
       glm::rotate(glm::mat4(1.f), -kPi / 2.f, glm::vec3(1.f, 0.f, 0.f)) *
           pos_z_view_mat;
-  shadow_view_mats[3] =  // -y
+  shadow_view_mats[3] =  // Bottom (-y)
       glm::rotate(glm::mat4(1.f), kPi / 2.f, glm::vec3(1.f, 0.f, 0.f)) *
           pos_z_view_mat;
-  shadow_view_mats[4] = pos_z_view_mat;  // +z
-  shadow_view_mats[5] =  // -z
+  shadow_view_mats[4] = pos_z_view_mat;  // Front (+z)
+  shadow_view_mats[5] =  // Back (-z)
       glm::rotate(glm::mat4(1.f), kPi, glm::vec3(0.f, 1.f, 0.f)) *
           pos_z_view_mat;
 
@@ -1618,9 +1621,9 @@ bool App::InitDescriptors() {
   sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
   sampler_info.magFilter = VK_FILTER_LINEAR;
   sampler_info.minFilter = VK_FILTER_LINEAR;
-  sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-  sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-  sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+  sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+  sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+  sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
   sampler_info.anisotropyEnable = VK_TRUE;
   sampler_info.maxAnisotropy = phys_device_props.limits.maxSamplerAnisotropy;
   sampler_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
