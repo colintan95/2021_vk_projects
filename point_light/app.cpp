@@ -1709,43 +1709,7 @@ bool App::RecordCommandBuffers() {
       return false;
     }
 
-    VkClearValue clear_values[2] = {};
-    clear_values[0].color = {0.0f, 0.0f, 0.0f, 1.0f};
-    clear_values[1].depthStencil = {1.0f, 0};
-
-    VkRenderPassBeginInfo render_pass_begin_info = {};
-    render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    render_pass_begin_info.renderPass = render_pass_;
-    render_pass_begin_info.framebuffer = swap_chain_framebuffers_[i];
-    render_pass_begin_info.renderArea.offset = {0, 0};
-    render_pass_begin_info.renderArea.extent = swap_chain_extent_;
-    render_pass_begin_info.clearValueCount = 2;
-    render_pass_begin_info.pClearValues = clear_values;
-
-    vkCmdBeginRenderPass(command_buffer, &render_pass_begin_info,
-                         VK_SUBPASS_CONTENTS_INLINE);
-
-    vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                      pipeline_);
-
-    vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            pipeline_layout_, 0, 1, &descriptor_sets_[i], 0,
-                            nullptr);
-
-    VkBuffer vertex_buffers[] = {
-      position_buffer_, normal_buffer_, material_idx_buffer_
-    };
-    VkDeviceSize offsets[] = { 0, 0, 0 };
-    vkCmdBindVertexBuffers(command_buffer, 0, 3, vertex_buffers, offsets);
-
-    vkCmdBindIndexBuffer(command_buffer, index_buffer_, 0,
-                         VK_INDEX_TYPE_UINT16);
-
-    vkCmdDraw(command_buffer, 3, 1, 0, 0);
-
-    vkCmdDrawIndexed(command_buffer, model_.index_buffer.size(), 1, 0, 0, 0);
-
-    vkCmdEndRenderPass(command_buffer);
+    RecordScenePassCommands(command_buffer, i);
 
     if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS) {
       std::cerr << "Could not end command buffer." << std::endl;
@@ -1753,6 +1717,46 @@ bool App::RecordCommandBuffers() {
     }
   }
   return true;
+}
+
+void App::RecordScenePassCommands(VkCommandBuffer command_buffer, int index) {
+  VkClearValue clear_values[2] = {};
+  clear_values[0].color = {0.0f, 0.0f, 0.0f, 1.0f};
+  clear_values[1].depthStencil = {1.0f, 0};
+
+  VkRenderPassBeginInfo render_pass_begin_info = {};
+  render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+  render_pass_begin_info.renderPass = render_pass_;
+  render_pass_begin_info.framebuffer = swap_chain_framebuffers_[index];
+  render_pass_begin_info.renderArea.offset = {0, 0};
+  render_pass_begin_info.renderArea.extent = swap_chain_extent_;
+  render_pass_begin_info.clearValueCount = 2;
+  render_pass_begin_info.pClearValues = clear_values;
+
+  vkCmdBeginRenderPass(command_buffer, &render_pass_begin_info,
+                        VK_SUBPASS_CONTENTS_INLINE);
+
+  vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                    pipeline_);
+
+  vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                          pipeline_layout_, 0, 1, &descriptor_sets_[index], 0,
+                          nullptr);
+
+  VkBuffer vertex_buffers[] = {
+    position_buffer_, normal_buffer_, material_idx_buffer_
+  };
+  VkDeviceSize offsets[] = { 0, 0, 0 };
+  vkCmdBindVertexBuffers(command_buffer, 0, 3, vertex_buffers, offsets);
+
+  vkCmdBindIndexBuffer(command_buffer, index_buffer_, 0,
+                        VK_INDEX_TYPE_UINT16);
+
+  vkCmdDraw(command_buffer, 3, 1, 0, 0);
+
+  vkCmdDrawIndexed(command_buffer, model_.index_buffer.size(), 1, 0, 0, 0);
+
+  vkCmdEndRenderPass(command_buffer);
 }
 
 bool App::CreateSyncObjects() {
