@@ -38,11 +38,13 @@ void main() {
 
   float max_com = max(max(abs(light_vec.x), abs(light_vec.y)),
                       abs(light_vec.z));
-  float depth = (-far + near * far / max_com) / (near - far) - 0.05;
+  float depth = (-far + near * far / max_com) / (near - far) - 0.01;
   depth = clamp(depth, 0, 1);
 
   vec3 cubemap_coord = -l;
-  cubemap_coord.x *= -1;  // cubemaps use left-handed coordinates
+  // Inverts the x coord because cubemaps use left-handed coordinates.
+  cubemap_coord.x *= -1;
+
   float shadow_tex_depth = texture(shadow_tex_sampler, cubemap_coord).r;
 
   float no_shadow = clamp(sign(shadow_tex_depth - depth), 0, 1);
