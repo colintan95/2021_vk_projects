@@ -27,8 +27,8 @@ const char* kRequiredDeviceExtensions[] = {
 constexpr int kShadowTextureWidth = 1024;
 constexpr int kShadowTextureHeight = 1024;
 
-constexpr float kShadowPassNearPlane = 0.1;
-constexpr float kShadowPassFarPlane = 3.f;
+constexpr float kShadowPassNearPlane = 0.01f;
+constexpr float kShadowPassFarPlane = 5.f;
 
 constexpr int kMaxFramesInFlight = 3;
 
@@ -1438,6 +1438,7 @@ bool App::InitDescriptors() {
   glm::mat4 shadow_proj_mat = glm::perspective(90.f, shadow_tex_aspect_ratio,
                                                kShadowPassNearPlane,
                                                kShadowPassFarPlane);
+  shadow_proj_mat[1][1] *= -1;
 
   std::vector<glm::mat4> shadow_view_mats(6);
   shadow_view_mats[0] = light_view_mat;  // Front
@@ -1459,7 +1460,7 @@ bool App::InitDescriptors() {
 
   shadow_mats_.resize(6);
   for (int i = 0; i < shadow_mats_.size(); ++i) {
-    shadow_mats_[i] = model_mat * shadow_view_mats[i] * shadow_proj_mat;
+    shadow_mats_[i] = shadow_proj_mat * shadow_view_mats[i] * model_mat;
   }
 
   vert_ubo_data.model_mat = model_mat;
