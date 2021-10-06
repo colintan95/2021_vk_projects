@@ -1,5 +1,6 @@
 #include "app.h"
 
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -27,8 +28,8 @@ const char* kRequiredDeviceExtensions[] = {
 constexpr int kShadowTextureWidth = 1024;
 constexpr int kShadowTextureHeight = 1024;
 
-constexpr float kShadowPassNearPlane = 0.05f;
-constexpr float kShadowPassFarPlane = 3.f;
+constexpr float kShadowPassNearPlane = 1.f;
+constexpr float kShadowPassFarPlane = 10.f;
 
 constexpr int kMaxFramesInFlight = 3;
 
@@ -1466,7 +1467,7 @@ bool App::InitDescriptors() {
                                         100.f);
   proj_mat[1][1] *= -1;
 
-  glm::vec3 light_pos = glm::vec3(0.f, 1.9f, 0.f);
+  glm::vec3 light_pos = glm::vec3(0.f, 1.f, 3.f);
 
   float shadow_tex_aspect_ratio = static_cast<float>(kShadowTextureWidth) /
       static_cast<float>(kShadowTextureHeight);

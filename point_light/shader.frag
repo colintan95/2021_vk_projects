@@ -38,7 +38,7 @@ void main() {
 
   float max_com = max(max(abs(light_vec.x), abs(light_vec.y)),
                       abs(light_vec.z));
-  float depth = (far - far * near / max_com) / (far - near) - 0.05;
+  float depth = (-far + near * far / max_com) / (near - far) - 0.01;
   depth = clamp(depth, 0, 1);
 
   float shadow_tex_depth = texture(shadow_tex_sampler, -l).r;
