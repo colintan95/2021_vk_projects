@@ -28,7 +28,7 @@ void main() {
   vec3 diffuse = ubo.materials[frag_mtl_idx].diffuse_color.rgb;
   diffuse *= clamp(dot(l, n), 0, 1);
 
-  float depth = texture(shadow_tex_sampler, vec4(1.0, 0.0, 0.0, 1.0));
+  float depth = texture(shadow_tex_sampler, vec4(-l, 0.0));
 
   out_color = vec4(ambient + diffuse, 1.0);
 }

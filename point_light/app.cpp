@@ -1478,21 +1478,21 @@ bool App::InitDescriptors() {
   shadow_proj_mat[1][1] *= -1;
 
   std::vector<glm::mat4> shadow_view_mats(6);
-  shadow_view_mats[0] = light_view_mat;  // Front
-  shadow_view_mats[1] =   // Back
-      glm::rotate(glm::mat4(1.f), kPi, glm::vec3(0.f, 1.f, 0.f)) *
+  shadow_view_mats[0] =  // Left (-x)
+      glm::rotate(glm::mat4(1.f), kPi / 2.f, glm::vec3(0.f, 1.f, 0.f)) *
           light_view_mat;
-  shadow_view_mats[2] =  // Top
-      glm::rotate(glm::mat4(1.f), -kPi / 2.f, glm::vec3(1.f, 0.f, 0.f)) *
-          light_view_mat;
-  shadow_view_mats[3] =  // Bottom
-      glm::rotate(glm::mat4(1.f), kPi / 2.f, glm::vec3(1.f, 0.f, 0.f)) *
-          light_view_mat;
-  shadow_view_mats[4] =  // Right
+  shadow_view_mats[1] =  // Right (+x)
       glm::rotate(glm::mat4(1.f), -kPi / 2.f, glm::vec3(0.f, 1.f, 0.f)) *
           light_view_mat;
-  shadow_view_mats[5] =  // Left
-      glm::rotate(glm::mat4(1.f), kPi / 2.f, glm::vec3(0.f, 1.f, 0.f)) *
+  shadow_view_mats[2] =  // Top (+y)
+      glm::rotate(glm::mat4(1.f), -kPi / 2.f, glm::vec3(1.f, 0.f, 0.f)) *
+          light_view_mat;
+  shadow_view_mats[3] =  // Bottom (-y)
+      glm::rotate(glm::mat4(1.f), kPi / 2.f, glm::vec3(1.f, 0.f, 0.f)) *
+          light_view_mat;
+  shadow_view_mats[4] = light_view_mat;  // Front (-z)
+  shadow_view_mats[5] =   // Back (+z)
+      glm::rotate(glm::mat4(1.f), kPi, glm::vec3(0.f, 1.f, 0.f)) *
           light_view_mat;
 
   shadow_mats_.resize(6);
