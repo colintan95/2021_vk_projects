@@ -1709,6 +1709,8 @@ bool App::RecordCommandBuffers() {
       return false;
     }
 
+    RecordShadowPassCommands(command_buffer, i);
+
     RecordScenePassCommands(command_buffer, i);
 
     if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS) {
@@ -1719,7 +1721,50 @@ bool App::RecordCommandBuffers() {
   return true;
 }
 
-void App::RecordScenePassCommands(VkCommandBuffer command_buffer, int index) {
+void App::RecordShadowPassCommands(VkCommandBuffer command_buffer,
+                                   int frame_index) {
+  ShadowPassFrameResource& frame = shadow_frame_resources_[frame_index];
+
+  for (int i = 0; i < frame.depth_framebuffers.size(); ++i) {
+    VkClearValue clear_value = {};
+    clear_value.depthStencil = {1.0f, 0};
+
+    VkRenderPassBeginInfo render_pass_begin_info = {};
+    render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    render_pass_begin_info.renderPass = shadow_render_pass_;
+    render_pass_begin_info.framebuffer = frame.depth_framebuffers[i];
+    render_pass_begin_info.renderArea.offset = {0, 0};
+    render_pass_begin_info.renderArea.extent = {
+      kShadowTextureWidth, kShadowTextureHeight
+    };
+    render_pass_begin_info.clearValueCount = 1;
+    render_pass_begin_info.pClearValues = &clear_value;
+
+    vkCmdBeginRenderPass(command_buffer, &render_pass_begin_info,
+                          VK_SUBPASS_CONTENTS_INLINE);
+
+    vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                      shadow_pipeline_);
+
+    vkCmdPushConstants(command_buffer, shadow_pipeline_layout_,
+                       VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4),
+                       &shadow_mats_[i]);
+
+    VkBuffer vertex_buffers[] = { position_buffer_ };
+    VkDeviceSize offsets[] = { 0 };
+    vkCmdBindVertexBuffers(command_buffer, 0, 1, vertex_buffers, offsets);
+
+    vkCmdBindIndexBuffer(command_buffer, index_buffer_, 0,
+                         VK_INDEX_TYPE_UINT16);
+
+    vkCmdDrawIndexed(command_buffer, model_.index_buffer.size(), 1, 0, 0, 0);
+
+    vkCmdEndRenderPass(command_buffer);
+  }
+}
+
+void App::RecordScenePassCommands(VkCommandBuffer command_buffer,
+                                  int frame_index) {
   VkClearValue clear_values[2] = {};
   clear_values[0].color = {0.0f, 0.0f, 0.0f, 1.0f};
   clear_values[1].depthStencil = {1.0f, 0};
@@ -1727,7 +1772,7 @@ void App::RecordScenePassCommands(VkCommandBuffer command_buffer, int index) {
   VkRenderPassBeginInfo render_pass_begin_info = {};
   render_pass_begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
   render_pass_begin_info.renderPass = render_pass_;
-  render_pass_begin_info.framebuffer = swap_chain_framebuffers_[index];
+  render_pass_begin_info.framebuffer = swap_chain_framebuffers_[frame_index];
   render_pass_begin_info.renderArea.offset = {0, 0};
   render_pass_begin_info.renderArea.extent = swap_chain_extent_;
   render_pass_begin_info.clearValueCount = 2;
@@ -1740,8 +1785,8 @@ void App::RecordScenePassCommands(VkCommandBuffer command_buffer, int index) {
                     pipeline_);
 
   vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                          pipeline_layout_, 0, 1, &descriptor_sets_[index], 0,
-                          nullptr);
+                          pipeline_layout_, 0, 1,
+                          &descriptor_sets_[frame_index], 0, nullptr);
 
   VkBuffer vertex_buffers[] = {
     position_buffer_, normal_buffer_, material_idx_buffer_
@@ -1751,8 +1796,6 @@ void App::RecordScenePassCommands(VkCommandBuffer command_buffer, int index) {
 
   vkCmdBindIndexBuffer(command_buffer, index_buffer_, 0,
                         VK_INDEX_TYPE_UINT16);
-
-  vkCmdDraw(command_buffer, 3, 1, 0, 0);
 
   vkCmdDrawIndexed(command_buffer, model_.index_buffer.size(), 1, 0, 0, 0);
 

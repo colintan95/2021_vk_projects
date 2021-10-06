@@ -44,7 +44,9 @@ private:
   bool InitBuffers();
 
   bool RecordCommandBuffers();
-  void RecordScenePassCommands(VkCommandBuffer command_buffer, int index);
+  void RecordShadowPassCommands(VkCommandBuffer command_buffer,
+                                int frame_index);
+  void RecordScenePassCommands(VkCommandBuffer command_buffer, int frame_index);
 
   bool CreateSyncObjects();
 
