@@ -1292,23 +1292,24 @@ bool App::CreateShadowFramebuffers() {
   shadow_frame_resources_.resize(swap_chain_images_.size());
 
   for (ShadowPassFrameResource& frame : shadow_frame_resources_) {
-    VkImageCreateInfo shadow_image_info = {};
-    shadow_image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    shadow_image_info.imageType = VK_IMAGE_TYPE_2D;
-    shadow_image_info.extent.width = kShadowTextureWidth;
-    shadow_image_info.extent.height = kShadowTextureHeight;
-    shadow_image_info.extent.depth = 1;
-    shadow_image_info.mipLevels = 1;
-    shadow_image_info.arrayLayers = 6;
-    shadow_image_info.format = depth_format;
-    shadow_image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
-    shadow_image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    shadow_image_info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
+    VkImageCreateInfo shadow_tex_info = {};
+    shadow_tex_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    shadow_tex_info.imageType = VK_IMAGE_TYPE_2D;
+    shadow_tex_info.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+    shadow_tex_info.extent.width = kShadowTextureWidth;
+    shadow_tex_info.extent.height = kShadowTextureHeight;
+    shadow_tex_info.extent.depth = 1;
+    shadow_tex_info.mipLevels = 1;
+    shadow_tex_info.arrayLayers = 6;
+    shadow_tex_info.format = depth_format;
+    shadow_tex_info.tiling = VK_IMAGE_TILING_OPTIMAL;
+    shadow_tex_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    shadow_tex_info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
         VK_IMAGE_USAGE_SAMPLED_BIT;
-    shadow_image_info.samples = VK_SAMPLE_COUNT_1_BIT;
-    shadow_image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    shadow_tex_info.samples = VK_SAMPLE_COUNT_1_BIT;
+    shadow_tex_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    if (!CreateImage(&shadow_image_info, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+    if (!CreateImage(&shadow_tex_info, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
                     physical_device_, device_, &frame.shadow_texture,
                     &frame.shadow_texture_memory)) {
       std::cerr << "Could not create shadow image." << std::endl;
@@ -1352,7 +1353,26 @@ bool App::CreateShadowFramebuffers() {
         return false;
       }
     }
+
+    VkImageViewCreateInfo shadow_tex_view_info = {};
+    shadow_tex_view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    shadow_tex_view_info.image = frame.shadow_texture;
+    shadow_tex_view_info.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+    shadow_tex_view_info.format = depth_format;
+    shadow_tex_view_info.subresourceRange.aspectMask =
+        VK_IMAGE_ASPECT_DEPTH_BIT;
+    shadow_tex_view_info.subresourceRange.baseMipLevel = 0;
+    shadow_tex_view_info.subresourceRange.levelCount = 1;
+    shadow_tex_view_info.subresourceRange.baseArrayLayer = 0;
+    shadow_tex_view_info.subresourceRange.layerCount = 6;
+
+    if (vkCreateImageView(device_, &shadow_tex_view_info, nullptr,
+                          &frame.shadow_texture_view) != VK_SUCCESS) {
+      std::cerr << "Could not create shadow texture view." << std::endl;
+      return false;
+    }
   }
+
   return true;
 }
 
@@ -1863,6 +1883,7 @@ void App::Destroy() {
   vkDestroyCommandPool(device_, command_pool_, nullptr);
 
   for (ShadowPassFrameResource& frame : shadow_frame_resources_) {
+    vkDestroyImageView(device_, frame.shadow_texture_view, nullptr);
     for (VkFramebuffer framebuffer : frame.depth_framebuffers) {
       vkDestroyFramebuffer(device_, framebuffer, nullptr);
     }
@@ -2025,6 +2046,7 @@ bool App::RecreateSwapChain() {
   descriptor_sets_.clear();
 
   for (ShadowPassFrameResource& frame : shadow_frame_resources_) {
+    vkDestroyImageView(device_, frame.shadow_texture_view, nullptr);
     for (VkFramebuffer framebuffer : frame.depth_framebuffers) {
       vkDestroyFramebuffer(device_, framebuffer, nullptr);
     }

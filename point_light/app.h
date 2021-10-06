@@ -101,6 +101,7 @@ private:
     VkDeviceMemory shadow_texture_memory;
     std::vector<VkImageView> depth_framebuffer_views;
     std::vector<VkFramebuffer> depth_framebuffers;
+    VkImageView shadow_texture_view;
   };
 
   std::vector<ShadowPassFrameResource> shadow_frame_resources_;
