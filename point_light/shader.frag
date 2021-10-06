@@ -33,9 +33,17 @@ void main() {
   vec3 diffuse = ubo.materials[frag_mtl_idx].diffuse_color.rgb;
   diffuse *= clamp(dot(l, n), 0, 1);
 
+  float near = ubo.shadow_near_plane;
+  float far = ubo.shadow_far_plane;
+
+  float max_com = max(max(abs(light_vec.x), abs(light_vec.y)),
+                      abs(light_vec.z));
+  float depth = (far - far * near / max_com) / (far - near) - 0.05;
+  depth = clamp(depth, 0, 1);
+
   float shadow_tex_depth = texture(shadow_tex_sampler, -l).r;
 
-  out_color = vec4(ambient + diffuse, 1.0);
+  float no_shadow = clamp(sign(shadow_tex_depth - depth), 0, 1);
 
-  // out_color = vec4(shadow_tex_depth, shadow_tex_depth, shadow_tex_depth, 1.0);
+  out_color = vec4(ambient + no_shadow * diffuse, 1.0);
 }
