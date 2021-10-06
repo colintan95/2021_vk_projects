@@ -11,15 +11,20 @@ struct Material {
   vec4 diffuse_color;
 };
 
-layout(binding = 1) uniform UniformBufferObject {
+layout(binding = 1, std140) uniform UniformBufferObject {
   vec4 light_pos;
+  float shadow_near_plane;
+  float shadow_far_plane;
+  vec2 pad;
   Material materials[20];
 } ubo;
 
-layout(binding = 2) uniform samplerCubeShadow shadow_tex_sampler;
+layout(binding = 2) uniform samplerCube shadow_tex_sampler;
 
 void main() {
-  vec3 l = normalize(ubo.light_pos.xyz - frag_world_pos);
+  vec3 light_vec = ubo.light_pos.xyz - frag_world_pos;
+
+  vec3 l = normalize(light_vec);
   vec3 n = normalize(frag_normal);
 
   vec3 ambient = ubo.materials[frag_mtl_idx].ambient_color.rgb;
@@ -28,7 +33,9 @@ void main() {
   vec3 diffuse = ubo.materials[frag_mtl_idx].diffuse_color.rgb;
   diffuse *= clamp(dot(l, n), 0, 1);
 
-  float depth = texture(shadow_tex_sampler, vec4(-l, 0.0));
+  float shadow_tex_depth = texture(shadow_tex_sampler, -l).r;
 
   out_color = vec4(ambient + diffuse, 1.0);
+
+  // out_color = vec4(shadow_tex_depth, shadow_tex_depth, shadow_tex_depth, 1.0);
 }

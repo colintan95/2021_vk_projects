@@ -27,8 +27,8 @@ const char* kRequiredDeviceExtensions[] = {
 constexpr int kShadowTextureWidth = 1024;
 constexpr int kShadowTextureHeight = 1024;
 
-constexpr float kShadowPassNearPlane = 0.01f;
-constexpr float kShadowPassFarPlane = 5.f;
+constexpr float kShadowPassNearPlane = 0.05f;
+constexpr float kShadowPassFarPlane = 3.f;
 
 constexpr int kMaxFramesInFlight = 3;
 
@@ -1471,29 +1471,31 @@ bool App::InitDescriptors() {
   float shadow_tex_aspect_ratio = static_cast<float>(kShadowTextureWidth) /
       static_cast<float>(kShadowTextureHeight);
 
-  glm::mat4 light_view_mat = glm::translate(glm::mat4(1.f), -light_pos);
+  glm::mat4 pos_z_view_mat =
+      glm::rotate(glm::mat4(1.f), kPi, glm::vec3(0.f, 1.f, 0.f)) *
+          glm::translate(glm::mat4(1.f), -light_pos);
   glm::mat4 shadow_proj_mat = glm::perspective(90.f, shadow_tex_aspect_ratio,
                                                kShadowPassNearPlane,
                                                kShadowPassFarPlane);
   shadow_proj_mat[1][1] *= -1;
 
   std::vector<glm::mat4> shadow_view_mats(6);
-  shadow_view_mats[0] =  // Left (-x)
-      glm::rotate(glm::mat4(1.f), kPi / 2.f, glm::vec3(0.f, 1.f, 0.f)) *
-          light_view_mat;
-  shadow_view_mats[1] =  // Right (+x)
+  shadow_view_mats[0] =  // +x
       glm::rotate(glm::mat4(1.f), -kPi / 2.f, glm::vec3(0.f, 1.f, 0.f)) *
-          light_view_mat;
-  shadow_view_mats[2] =  // Top (+y)
+          pos_z_view_mat;
+  shadow_view_mats[1] =  // -x
+      glm::rotate(glm::mat4(1.f), kPi / 2.f, glm::vec3(0.f, 1.f, 0.f)) *
+          pos_z_view_mat;
+  shadow_view_mats[2] =  // +y
       glm::rotate(glm::mat4(1.f), -kPi / 2.f, glm::vec3(1.f, 0.f, 0.f)) *
-          light_view_mat;
-  shadow_view_mats[3] =  // Bottom (-y)
+          pos_z_view_mat;
+  shadow_view_mats[3] =  // -y
       glm::rotate(glm::mat4(1.f), kPi / 2.f, glm::vec3(1.f, 0.f, 0.f)) *
-          light_view_mat;
-  shadow_view_mats[4] = light_view_mat;  // Front (-z)
-  shadow_view_mats[5] =   // Back (+z)
+          pos_z_view_mat;
+  shadow_view_mats[4] = pos_z_view_mat;  // +z
+  shadow_view_mats[5] =  // -z
       glm::rotate(glm::mat4(1.f), kPi, glm::vec3(0.f, 1.f, 0.f)) *
-          light_view_mat;
+          pos_z_view_mat;
 
   shadow_mats_.resize(6);
   for (int i = 0; i < shadow_mats_.size(); ++i) {
@@ -1551,10 +1553,15 @@ bool App::InitDescriptors() {
 
   struct FragmentShaderUbo {
     glm::vec4 light_pos;
+    float shadow_near_plane;
+    float shadow_far_plane;
+    glm::vec2 pad;
     Material materials[20];
   } frag_ubo_data;
 
   frag_ubo_data.light_pos = glm::vec4(light_pos, 0.f);
+  frag_ubo_data.shadow_near_plane = kShadowPassNearPlane;
+  frag_ubo_data.shadow_far_plane = kShadowPassFarPlane;
 
   for (int i = 0; i < model_.materials.size(); ++i) {
     frag_ubo_data.materials[i].ambient_color =
@@ -1618,8 +1625,6 @@ bool App::InitDescriptors() {
   sampler_info.maxAnisotropy = phys_device_props.limits.maxSamplerAnisotropy;
   sampler_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
   sampler_info.unnormalizedCoordinates = VK_FALSE;
-  sampler_info.compareEnable = VK_FALSE;
-  sampler_info.compareOp = VK_COMPARE_OP_ALWAYS;
   sampler_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
 
   if (vkCreateSampler(device_, &sampler_info, nullptr, &shadow_texture_sampler_)
