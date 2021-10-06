@@ -1467,7 +1467,7 @@ bool App::InitDescriptors() {
                                         100.f);
   proj_mat[1][1] *= -1;
 
-  glm::vec3 light_pos = glm::vec3(0.f, 1.f, 3.f);
+  glm::vec3 light_pos = glm::vec3(0.f, 1.9f, 0.f);
 
   float shadow_tex_aspect_ratio = static_cast<float>(kShadowTextureWidth) /
       static_cast<float>(kShadowTextureHeight);
