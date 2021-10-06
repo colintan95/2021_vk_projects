@@ -696,15 +696,24 @@ bool App::CreateSwapChain() {
 }
 
 bool App::CreateDescriptorPool() {
-  VkDescriptorPoolSize pool_size = {};
-  pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  pool_size.descriptorCount =
+  VkDescriptorPoolSize uniform_buffer_pool_size = {};
+  uniform_buffer_pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  uniform_buffer_pool_size.descriptorCount =
       static_cast<uint32_t>(swap_chain_images_.size()) * 2;
+
+  VkDescriptorPoolSize combined_sampler_pool_size = {};
+  combined_sampler_pool_size.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  combined_sampler_pool_size.descriptorCount =
+      static_cast<uint32_t>(swap_chain_images_.size());
+
+  VkDescriptorPoolSize pool_sizes[] = {
+    uniform_buffer_pool_size, combined_sampler_pool_size
+  };
 
   VkDescriptorPoolCreateInfo pool_info = {};
   pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-  pool_info.poolSizeCount = 1;
-  pool_info.pPoolSizes = &pool_size;
+  pool_info.poolSizeCount = 2;
+  pool_info.pPoolSizes = pool_sizes;
   pool_info.maxSets = static_cast<uint32_t>(swap_chain_images_.size());
 
   if (vkCreateDescriptorPool(device_, &pool_info, nullptr, &descriptor_pool_)
@@ -829,14 +838,22 @@ bool App::CreatePipeline() {
   frag_ubo_binding.pImmutableSamplers = nullptr;
   frag_ubo_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
+  VkDescriptorSetLayoutBinding shadow_tex_sampler_binding = {};
+  shadow_tex_sampler_binding.binding = 2;
+  shadow_tex_sampler_binding.descriptorCount = 1;
+  shadow_tex_sampler_binding.descriptorType =
+      VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  shadow_tex_sampler_binding.pImmutableSamplers = nullptr;
+  shadow_tex_sampler_binding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
   VkDescriptorSetLayoutBinding descriptor_set_bindings[] = {
-    vert_ubo_binding, frag_ubo_binding
+    vert_ubo_binding, frag_ubo_binding, shadow_tex_sampler_binding
   };
 
   VkDescriptorSetLayoutCreateInfo descriptor_set_layout_info = {};
   descriptor_set_layout_info.sType =
       VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-  descriptor_set_layout_info.bindingCount = 2;
+  descriptor_set_layout_info.bindingCount = 3;
   descriptor_set_layout_info.pBindings = descriptor_set_bindings;
 
   if (vkCreateDescriptorSetLayout(device_, &descriptor_set_layout_info, nullptr,
@@ -1587,6 +1604,48 @@ bool App::InitDescriptors() {
     vkUpdateDescriptorSets(device_, 1, &descriptor_write, 0, nullptr);
   }
 
+  VkPhysicalDeviceProperties phys_device_props = {};
+  vkGetPhysicalDeviceProperties(physical_device_, &phys_device_props);
+
+  VkSamplerCreateInfo sampler_info = {};
+  sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+  sampler_info.magFilter = VK_FILTER_LINEAR;
+  sampler_info.minFilter = VK_FILTER_LINEAR;
+  sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+  sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+  sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+  sampler_info.anisotropyEnable = VK_TRUE;
+  sampler_info.maxAnisotropy = phys_device_props.limits.maxSamplerAnisotropy;
+  sampler_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+  sampler_info.unnormalizedCoordinates = VK_FALSE;
+  sampler_info.compareEnable = VK_FALSE;
+  sampler_info.compareOp = VK_COMPARE_OP_ALWAYS;
+  sampler_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+
+  if (vkCreateSampler(device_, &sampler_info, nullptr, &shadow_texture_sampler_)
+          != VK_SUCCESS) {
+    std::cerr << "Could not create shadow texture sampler." << std::endl;
+    return false;
+  }
+
+  for (int i = 0; i < swap_chain_images_.size(); i++) {
+    VkDescriptorImageInfo image_info = {};
+    image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    image_info.imageView = shadow_frame_resources_[i].shadow_texture_view;
+    image_info.sampler = shadow_texture_sampler_;
+
+    VkWriteDescriptorSet descriptor_write = {};
+    descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptor_write.dstSet = descriptor_sets_[i];
+    descriptor_write.dstBinding = 2;
+    descriptor_write.dstArrayElement = 0;
+    descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptor_write.descriptorCount = 1;
+    descriptor_write.pImageInfo = &image_info;
+
+    vkUpdateDescriptorSets(device_, 1, &descriptor_write, 0, nullptr);
+  }
+
   return true;
 }
 
@@ -1869,6 +1928,8 @@ void App::Destroy() {
   vkDestroyBuffer(device_, position_buffer_, nullptr);
   vkFreeMemory(device_, position_buffer_memory_, nullptr);
 
+  vkDestroySampler(device_, shadow_texture_sampler_, nullptr);
+
   for (int i = 0; i < swap_chain_images_.size(); ++i) {
     vkDestroyBuffer(device_, frag_ubo_buffers_[i], nullptr);
     vkFreeMemory(device_, frag_ubo_buffers_memory_[i], nullptr);
@@ -2027,6 +2088,8 @@ bool App::RecreateSwapChain() {
   }
 
   vkDeviceWaitIdle(device_);
+
+  vkDestroySampler(device_, shadow_texture_sampler_, nullptr);
 
   for (int i = 0; i < swap_chain_images_.size(); ++i) {
     vkDestroyBuffer(device_, frag_ubo_buffers_[i], nullptr);

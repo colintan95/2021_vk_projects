@@ -16,6 +16,8 @@ layout(binding = 1) uniform UniformBufferObject {
   Material materials[20];
 } ubo;
 
+layout(binding = 2) uniform samplerCubeShadow shadow_tex_sampler;
+
 void main() {
   vec3 l = normalize(ubo.light_pos.xyz - frag_world_pos);
   vec3 n = normalize(frag_normal);
@@ -25,6 +27,8 @@ void main() {
 
   vec3 diffuse = ubo.materials[frag_mtl_idx].diffuse_color.rgb;
   diffuse *= clamp(dot(l, n), 0, 1);
+
+  float depth = texture(shadow_tex_sampler, vec4(1.0, 0.0, 0.0, 1.0));
 
   out_color = vec4(ambient + diffuse, 1.0);
 }

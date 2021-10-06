@@ -116,6 +116,8 @@ private:
   std::vector<VkBuffer> frag_ubo_buffers_;
   std::vector<VkDeviceMemory> frag_ubo_buffers_memory_;
 
+  VkSampler shadow_texture_sampler_;
+
   VkBuffer position_buffer_;
   VkDeviceMemory position_buffer_memory_;
   VkBuffer normal_buffer_;
