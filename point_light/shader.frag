@@ -38,8 +38,13 @@ void main() {
 
   float max_com = max(max(abs(light_vec.x), abs(light_vec.y)),
                       abs(light_vec.z));
-  float depth = (-far + near * far / max_com) / (near - far) - 0.01;
+  float depth = (-far + near * far / max_com) / (near - far);
   depth = clamp(depth, 0, 1);
+
+  // Increase the bias as the cubemap coord gets closer to the edges of the
+  // cube and as the depth increases.
+  float depth_bias = (1 - depth) * (0.1 + (1 - max_com) * 0.1);
+  depth = clamp(depth - depth_bias, 0, 1);
 
   vec3 cubemap_coord = -l;
   // Inverts the x coord because cubemaps use left-handed coordinates.
