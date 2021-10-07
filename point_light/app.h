@@ -78,6 +78,8 @@ private:
   uint32_t graphics_queue_index_;
   uint32_t present_queue_index_;
 
+  VkSampleCountFlagBits msaa_sample_count_ = VK_SAMPLE_COUNT_1_BIT;
+
   bool framebuffer_resized_ = false;
 
   GLFWwindow* window_;
@@ -100,6 +102,9 @@ private:
   VkDescriptorSetLayout descriptor_set_layout_;
   VkPipelineLayout pipeline_layout_;
   VkPipeline pipeline_;
+  VkImage color_image_;
+  VkDeviceMemory color_image_memory_;
+  VkImageView color_image_view_;
   VkImage depth_image_;
   VkDeviceMemory depth_image_memory_;
   VkImageView depth_image_view_;
