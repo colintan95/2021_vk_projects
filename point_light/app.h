@@ -42,7 +42,7 @@ private:
 
   bool LoadModel();
   bool InitDescriptors();
-  bool InitBuffers();
+  bool InitVertexBuffers();
 
   bool RecordCommandBuffers();
   void RecordShadowPassCommands(VkCommandBuffer command_buffer,
@@ -56,6 +56,8 @@ private:
   bool CreateSyncObjects();
 
   void UploadDataToBuffer(void* data, VkDeviceSize size, VkBuffer buffer);
+
+  void DestroyVertexBuffers();
 
   bool DrawFrame();
 

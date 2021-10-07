@@ -468,7 +468,7 @@ bool App::Init() {
   if (!InitDescriptors())
     return false;
 
-  if (!InitBuffers())
+  if (!InitVertexBuffers())
     return false;
 
   if (!RecordCommandBuffers())
@@ -1658,7 +1658,7 @@ bool App::InitDescriptors() {
   return true;
 }
 
-bool App::InitBuffers() {
+bool App::InitVertexBuffers() {
   VkDeviceSize pos_buffer_size =
       sizeof(glm::vec3) * model_.positions.size();
 
@@ -1979,17 +1979,7 @@ void App::Destroy() {
     vkDestroyFence(device_, frame_ready_fences_[i], nullptr);
   }
 
-  vkDestroyBuffer(device_, index_buffer_, nullptr);
-  vkFreeMemory(device_, index_buffer_memory_, nullptr);
-
-  vkDestroyBuffer(device_, material_idx_buffer_, nullptr);
-  vkFreeMemory(device_, material_idx_buffer_memory_, nullptr);
-
-  vkDestroyBuffer(device_, normal_buffer_, nullptr);
-  vkFreeMemory(device_, normal_buffer_memory_, nullptr);
-
-  vkDestroyBuffer(device_, position_buffer_, nullptr);
-  vkFreeMemory(device_, position_buffer_memory_, nullptr);
+  DestroyVertexBuffers();
 
   vkDestroySampler(device_, shadow_texture_sampler_, nullptr);
 
@@ -2047,6 +2037,20 @@ void App::Destroy() {
   glfwDestroyWindow(window_);
 
   glfwTerminate();
+}
+
+void App::DestroyVertexBuffers() {
+  vkDestroyBuffer(device_, index_buffer_, nullptr);
+  vkFreeMemory(device_, index_buffer_memory_, nullptr);
+
+  vkDestroyBuffer(device_, material_idx_buffer_, nullptr);
+  vkFreeMemory(device_, material_idx_buffer_memory_, nullptr);
+
+  vkDestroyBuffer(device_, normal_buffer_, nullptr);
+  vkFreeMemory(device_, normal_buffer_memory_, nullptr);
+
+  vkDestroyBuffer(device_, position_buffer_, nullptr);
+  vkFreeMemory(device_, position_buffer_memory_, nullptr);
 }
 
 void App::MainLoop() {
