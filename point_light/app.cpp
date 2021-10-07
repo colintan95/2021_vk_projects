@@ -1976,10 +1976,8 @@ void App::Destroy() {
 
   DestroyScenePassResources();
 
-  for (const auto& image_view : swap_chain_image_views_) {
-    vkDestroyImageView(device_, image_view, nullptr);
-  }
-  vkDestroySwapchainKHR(device_, swap_chain_, nullptr);
+  DestroySwapChain();
+
   vkDestroyDevice(device_, nullptr);
   vkDestroySurfaceKHR(instance_, surface_, nullptr);
   DestroyDebugUtilsMessengerEXT(instance_, debug_messenger_, nullptr);
@@ -2059,6 +2057,15 @@ void App::DestroyScenePassResources() {
   vkDestroyPipelineLayout(device_, pipeline_layout_, nullptr);
   vkDestroyDescriptorSetLayout(device_, descriptor_set_layout_, nullptr);
   vkDestroyRenderPass(device_, render_pass_, nullptr);
+}
+
+void App::DestroySwapChain() {
+  for (const auto& image_view : swap_chain_image_views_) {
+    vkDestroyImageView(device_, image_view, nullptr);
+  }
+  swap_chain_image_views_.clear();
+
+  vkDestroySwapchainKHR(device_, swap_chain_, nullptr);
 }
 
 void App::MainLoop() {
@@ -2170,11 +2177,7 @@ bool App::RecreateSwapChain() {
 
   DestroyScenePassResources();
 
-  for (const auto& image_view : swap_chain_image_views_) {
-    vkDestroyImageView(device_, image_view, nullptr);
-  }
-  swap_chain_image_views_.clear();
-  vkDestroySwapchainKHR(device_, swap_chain_, nullptr);
+  DestroySwapChain();
 
   if (!CreateSwapChain())
     return false;

@@ -58,6 +58,7 @@ private:
   void DestroyDescriptorSets();
   void DestroyShadowPassResources();
   void DestroyScenePassResources();
+  void DestroySwapChain();
 
   bool DrawFrame();
 
