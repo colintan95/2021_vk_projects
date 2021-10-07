@@ -176,37 +176,6 @@ bool SupportsRequiredDeviceExtensions(VkPhysicalDevice device) {
   return true;
 }
 
-struct SwapChainSupport {
-  VkSurfaceCapabilitiesKHR capabilities;
-  std::vector<VkSurfaceFormatKHR> formats;
-  std::vector<VkPresentModeKHR> present_modes;
-};
-
-SwapChainSupport QuerySwapChainSupport(VkPhysicalDevice device,
-                                       VkSurfaceKHR surface) {
-  SwapChainSupport support = {};
-  vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface,
-                                            &support.capabilities);
-
-  uint32_t format_count;
-  vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &format_count, nullptr);
-
-  support.formats.resize(format_count);
-  vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &format_count,
-                                       support.formats.data());
-
-  uint32_t present_mode_count;
-  vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface,
-                                            &present_mode_count, nullptr);
-
-  support.present_modes.resize(present_mode_count);
-  vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface,
-                                            &present_mode_count,
-                                            support.present_modes.data());
-
-  return support;
-}
-
 bool IsPhysicalDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface) {
   QueueIndices queue_indices = FindQueueIndices(device, surface);
   if (!FoundQueueIndices(queue_indices))
@@ -215,9 +184,16 @@ bool IsPhysicalDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface) {
   if (!SupportsRequiredDeviceExtensions(device))
     return false;
 
-  SwapChainSupport swap_chain_support = QuerySwapChainSupport(device, surface);
-  if (swap_chain_support.formats.empty() ||
-      swap_chain_support.present_modes.empty())
+  uint32_t surface_formats_count;
+  vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &surface_formats_count,
+                                       nullptr);
+  if (surface_formats_count == 0)
+    return false;
+
+  uint32_t present_modes_count;
+  vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface,
+                                            &present_modes_count, nullptr);
+  if (present_modes_count == 0)
     return false;
 
   VkPhysicalDeviceFeatures features;
@@ -228,8 +204,16 @@ bool IsPhysicalDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface) {
   return true;
 }
 
-VkSurfaceFormatKHR ChooseSurfaceFormat(
-    const std::vector<VkSurfaceFormatKHR>& formats) {
+VkSurfaceFormatKHR ChooseSurfaceFormat(VkPhysicalDevice physical_device,
+                                       VkSurfaceKHR surface) {
+  uint32_t formats_count;
+  vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &formats_count,
+                                       nullptr);
+
+  std::vector<VkSurfaceFormatKHR> formats(formats_count);
+  vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface, &formats_count,
+                                       formats.data());
+
   for (const auto& format : formats) {
     if (format.format == VK_FORMAT_B8G8R8A8_SRGB &&
         format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
@@ -238,8 +222,18 @@ VkSurfaceFormatKHR ChooseSurfaceFormat(
   return formats[0];
 }
 
-VkPresentModeKHR ChoosePresentMode(const std::vector<VkPresentModeKHR>& modes) {
-  for (const auto& mode : modes) {
+VkPresentModeKHR ChoosePresentMode(VkPhysicalDevice physical_device,
+                                   VkSurfaceKHR surface) {
+  uint32_t present_mode_count;
+  vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, surface,
+                                            &present_mode_count, nullptr);
+
+  std::vector<VkPresentModeKHR> present_modes(present_mode_count);
+  vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, surface,
+                                            &present_mode_count,
+                                            present_modes.data());
+
+  for (const auto& mode : present_modes) {
     if (mode == VK_PRESENT_MODE_MAILBOX_KHR)
       return mode;
   }
@@ -608,21 +602,20 @@ bool App::CreateDevice() {
 }
 
 bool App::CreateSwapChain() {
-  SwapChainSupport swap_chain_support = QuerySwapChainSupport(physical_device_,
-                                                              surface_);
+  VkSurfaceCapabilitiesKHR surface_capabilities;
+  vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device_, surface_,
+                                            &surface_capabilities);
 
-  VkSurfaceFormatKHR surface_format = ChooseSurfaceFormat(
-      swap_chain_support.formats);
-  VkPresentModeKHR present_mode = ChoosePresentMode(
-      swap_chain_support.present_modes);
-
-  swap_chain_image_format_ = surface_format.format;
-  swap_chain_extent_ = ChooseSwapChainExtent(swap_chain_support.capabilities,
-                                             window_);
-
+  swap_chain_extent_ = ChooseSwapChainExtent(surface_capabilities, window_);
   uint32_t swap_chain_image_count = std::min(
-      swap_chain_support.capabilities.minImageCount + 1,
-      swap_chain_support.capabilities.maxImageCount);
+      surface_capabilities.minImageCount + 1,
+      surface_capabilities.maxImageCount);
+
+  VkSurfaceFormatKHR surface_format = ChooseSurfaceFormat(physical_device_,
+                                                          surface_);
+  swap_chain_image_format_ = surface_format.format;
+
+  VkPresentModeKHR present_mode = ChoosePresentMode(physical_device_, surface_);
 
   VkSwapchainCreateInfoKHR swap_chain_info = {};
   swap_chain_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
@@ -633,8 +626,7 @@ bool App::CreateSwapChain() {
   swap_chain_info.imageExtent = swap_chain_extent_;
   swap_chain_info.imageArrayLayers = 1;
   swap_chain_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-  swap_chain_info.preTransform =
-      swap_chain_support.capabilities.currentTransform;
+  swap_chain_info.preTransform = surface_capabilities.currentTransform;
   swap_chain_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
   swap_chain_info.presentMode = present_mode;
   swap_chain_info.clipped = VK_TRUE;
