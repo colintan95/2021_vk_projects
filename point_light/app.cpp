@@ -433,13 +433,7 @@ bool App::Init() {
   if (!CreateScenePassResources())
     return false;
 
-  if (!CreateShadowRenderPass())
-    return false;
-
-  if (!CreateShadowPipeline())
-    return false;
-
-  if (!CreateShadowFramebuffers())
+  if (!CreateShadowPassResources())
     return false;
 
   if (!CreateCommandPool())
@@ -2140,17 +2134,17 @@ bool App::DrawFrame() {
     render_complete_semaphores_[current_frame_]
   };
 
-  VkSubmitInfo submit_info = {};
-  submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-  submit_info.waitSemaphoreCount = 1;
-  submit_info.pWaitSemaphores = submit_wait_semaphores;
-  submit_info.pWaitDstStageMask = submit_wait_stages;
-  submit_info.commandBufferCount = 1;
-  submit_info.pCommandBuffers = &command_buffers_[image_index];
-  submit_info.signalSemaphoreCount = 1;
-  submit_info.pSignalSemaphores = submit_signal_semaphores;
+  VkSubmitInfo queue_submit_info = {};
+  queue_submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  queue_submit_info.waitSemaphoreCount = 1;
+  queue_submit_info.pWaitSemaphores = submit_wait_semaphores;
+  queue_submit_info.pWaitDstStageMask = submit_wait_stages;
+  queue_submit_info.commandBufferCount = 1;
+  queue_submit_info.pCommandBuffers = &command_buffers_[image_index];
+  queue_submit_info.signalSemaphoreCount = 1;
+  queue_submit_info.pSignalSemaphores = submit_signal_semaphores;
 
-  if (vkQueueSubmit(graphics_queue_, 1, &submit_info,
+  if (vkQueueSubmit(graphics_queue_, 1, &queue_submit_info,
                     frame_ready_fences_[current_frame_]) != VK_SUCCESS) {
     std::cerr << "Could not submit to queue." << std::endl;
     return false;
