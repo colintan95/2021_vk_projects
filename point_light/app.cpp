@@ -123,14 +123,16 @@ bool FoundQueueIndices(const QueueIndices& indices) {
       indices.present_queue_index.has_value();
 }
 
-QueueIndices FindQueueIndices(VkPhysicalDevice device, VkSurfaceKHR surface) {
+QueueIndices FindQueueIndices(VkPhysicalDevice physical_device,
+                              VkSurfaceKHR surface) {
   QueueIndices indices = {};
 
   uint32_t count;
-  vkGetPhysicalDeviceQueueFamilyProperties(device, &count, nullptr);
+  vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &count, nullptr);
 
   std::vector<VkQueueFamilyProperties> families(count);
-  vkGetPhysicalDeviceQueueFamilyProperties(device, &count, families.data());
+  vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &count,
+                                           families.data());
 
   for (int i = 0; i < families.size(); ++i) {
     VkQueueFamilyProperties family = families[i];
@@ -139,7 +141,8 @@ QueueIndices FindQueueIndices(VkPhysicalDevice device, VkSurfaceKHR surface) {
       indices.graphics_queue_index = i;
 
     VkBool32 present_support = false;
-    vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &present_support);
+    vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, i, surface,
+                                         &present_support);
 
     if (present_support)
       indices.present_queue_index = i;
@@ -151,12 +154,13 @@ QueueIndices FindQueueIndices(VkPhysicalDevice device, VkSurfaceKHR surface) {
   return indices;
 }
 
-bool SupportsRequiredDeviceExtensions(VkPhysicalDevice device) {
+bool SupportsRequiredDeviceExtensions(VkPhysicalDevice physical_device) {
   uint32_t count;
-  vkEnumerateDeviceExtensionProperties(device, nullptr, &count, nullptr);
+  vkEnumerateDeviceExtensionProperties(physical_device, nullptr, &count,
+                                       nullptr);
 
   std::vector<VkExtensionProperties> available_extensions(count);
-  vkEnumerateDeviceExtensionProperties(device, nullptr, &count,
+  vkEnumerateDeviceExtensionProperties(physical_device, nullptr, &count,
                                        available_extensions.data());
 
   for (const char* required_extension_name :
@@ -176,28 +180,29 @@ bool SupportsRequiredDeviceExtensions(VkPhysicalDevice device) {
   return true;
 }
 
-bool IsPhysicalDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface) {
-  QueueIndices queue_indices = FindQueueIndices(device, surface);
+bool IsPhysicalDeviceSuitable(VkPhysicalDevice physical_device,
+                              VkSurfaceKHR surface) {
+  QueueIndices queue_indices = FindQueueIndices(physical_device, surface);
   if (!FoundQueueIndices(queue_indices))
     return false;
 
-  if (!SupportsRequiredDeviceExtensions(device))
+  if (!SupportsRequiredDeviceExtensions(physical_device))
     return false;
 
   uint32_t surface_formats_count;
-  vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &surface_formats_count,
-                                       nullptr);
+  vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface,
+                                       &surface_formats_count, nullptr);
   if (surface_formats_count == 0)
     return false;
 
   uint32_t present_modes_count;
-  vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface,
+  vkGetPhysicalDeviceSurfacePresentModesKHR(physical_device, surface,
                                             &present_modes_count, nullptr);
   if (present_modes_count == 0)
     return false;
 
   VkPhysicalDeviceFeatures features;
-  vkGetPhysicalDeviceFeatures(device, &features);
+  vkGetPhysicalDeviceFeatures(physical_device, &features);
   if (!features.samplerAnisotropy)
     return false;
 
@@ -265,10 +270,10 @@ VkExtent2D ChooseSwapChainExtent(const VkSurfaceCapabilitiesKHR& capabilities,
 VkFormat FindSupportedFormat(const std::vector<VkFormat>& formats,
                              VkImageTiling tiling,
                              VkFormatFeatureFlags features,
-                             VkPhysicalDevice device) {
+                             VkPhysicalDevice physical_device) {
   for (const auto& format : formats) {
     VkFormatProperties properties;
-    vkGetPhysicalDeviceFormatProperties(device, format, &properties);
+    vkGetPhysicalDeviceFormatProperties(physical_device, format, &properties);
 
     if (tiling == VK_IMAGE_TILING_LINEAR &&
         (properties.linearTilingFeatures & features) == features) {
@@ -281,7 +286,7 @@ VkFormat FindSupportedFormat(const std::vector<VkFormat>& formats,
   return VK_FORMAT_UNDEFINED;
 }
 
-VkFormat FindDepthFormat(VkPhysicalDevice device) {
+VkFormat FindDepthFormat(VkPhysicalDevice physical_device) {
   std::vector<VkFormat> formats = {
     VK_FORMAT_D32_SFLOAT,
     VK_FORMAT_D32_SFLOAT_S8_UINT,
@@ -289,7 +294,7 @@ VkFormat FindDepthFormat(VkPhysicalDevice device) {
   };
   return FindSupportedFormat(formats, VK_IMAGE_TILING_OPTIMAL,
                              VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT,
-                             device);
+                             physical_device);
 }
 
 std::vector<char> LoadShaderFile(const std::string& path) {
@@ -530,19 +535,19 @@ bool App::InitInstanceAndSurface() {
 }
 
 bool App::ChoosePhysicalDevice() {
-  uint32_t count = 0;
-  vkEnumeratePhysicalDevices(instance_, &count, nullptr);
-  if (count == 0) {
+  uint32_t phys_devices_count = 0;
+  vkEnumeratePhysicalDevices(instance_, &phys_devices_count, nullptr);
+  if (phys_devices_count == 0) {
     std::cerr << "Could not find suitable physical device." << std::endl;
     return false;
   }
 
-  std::vector<VkPhysicalDevice> devices(count);
-  vkEnumeratePhysicalDevices(instance_, &count, devices.data());
+  std::vector<VkPhysicalDevice> phys_devices(phys_devices_count);
+  vkEnumeratePhysicalDevices(instance_, &phys_devices_count, phys_devices.data());
 
-  for (const auto& device : devices) {
-    if (IsPhysicalDeviceSuitable(device, surface_)) {
-      physical_device_ = device;
+  for (const auto& phys_device : phys_devices) {
+    if (IsPhysicalDeviceSuitable(phys_device, surface_)) {
+      physical_device_ = phys_device;
       return true;
     }
   }
@@ -571,8 +576,8 @@ bool App::CreateDevice() {
     queue_infos.push_back(queue_info);
   }
 
-  VkPhysicalDeviceFeatures device_features = {};
-  device_features.samplerAnisotropy = VK_TRUE;
+  VkPhysicalDeviceFeatures phys_device_features = {};
+  phys_device_features.samplerAnisotropy = VK_TRUE;
 
   std::vector<const char*> device_extensions = GetRequiredDeviceExtensions();
   std::vector<const char*> validation_layers = GetRequiredValidationLayers();
@@ -581,7 +586,7 @@ bool App::CreateDevice() {
   device_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
   device_info.queueCreateInfoCount = static_cast<uint32_t>(queue_infos.size());
   device_info.pQueueCreateInfos = queue_infos.data();
-  device_info.pEnabledFeatures = &device_features;
+  device_info.pEnabledFeatures = &phys_device_features;
   device_info.enabledExtensionCount = static_cast<uint32_t>(
       device_extensions.size());
   device_info.ppEnabledExtensionNames = device_extensions.data();
