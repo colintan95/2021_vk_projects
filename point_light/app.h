@@ -60,6 +60,8 @@ private:
 
   void DestroyVertexBuffers();
   void DestroyDescriptorSets();
+  void DestroyCommandBuffers();
+  void DestroyCommandPool();
   void DestroyShadowPassResources();
   void DestroyScenePassResources();
   void DestroySwapChain();

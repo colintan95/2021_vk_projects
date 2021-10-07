@@ -1985,7 +1985,9 @@ void App::Destroy() {
 
   DestroyDescriptorSets();
 
-  vkDestroyCommandPool(device_, command_pool_, nullptr);
+  DestroyCommandBuffers();
+
+  DestroyCommandPool();
 
   DestroyShadowPassResources();
 
@@ -2036,6 +2038,16 @@ void App::DestroyDescriptorSets() {
 
   vkDestroyDescriptorPool(device_, descriptor_pool_, nullptr);
   descriptor_sets_.clear();
+}
+
+void App::DestroyCommandBuffers() {
+  vkFreeCommandBuffers(device_, command_pool_, command_buffers_.size(),
+                       command_buffers_.data());
+  command_buffers_.clear();
+}
+
+void App::DestroyCommandPool() {
+  vkDestroyCommandPool(device_, command_pool_, nullptr);
 }
 
 void App::DestroyShadowPassResources() {
@@ -2187,6 +2199,8 @@ bool App::RecreateSwapChain() {
   vkDeviceWaitIdle(device_);
 
   DestroyDescriptorSets();
+
+  DestroyCommandBuffers();
 
   DestroyShadowPassResources();
 
