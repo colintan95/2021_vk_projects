@@ -27,3 +27,7 @@ set(ASSET_FILES
 
 copy_asset_files(TARGET point_light FILES ${ASSET_FILES})
 add_custom_target(assets ALL DEPENDS ${BUILD_ASSET_FILES})
+
+add_dependencies(point_light
+    shaders
+    assets)
