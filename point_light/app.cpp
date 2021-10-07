@@ -459,10 +459,10 @@ bool App::Init() {
   if (!LoadModel())
     return false;
 
-  if (!InitDescriptorSets())
+  if (!CreateDescriptorSets())
     return false;
 
-  if (!InitVertexBuffers())
+  if (!CreateVertexBuffers())
     return false;
 
   if (!RecordCommandBuffers())
@@ -1396,7 +1396,7 @@ bool App::LoadModel() {
   return true;
 }
 
-bool App::InitDescriptorSets() {
+bool App::CreateDescriptorSets() {
   VkDescriptorPoolSize uniform_buffer_pool_size = {};
   uniform_buffer_pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
   uniform_buffer_pool_size.descriptorCount =
@@ -1645,7 +1645,7 @@ bool App::InitDescriptorSets() {
   return true;
 }
 
-bool App::InitVertexBuffers() {
+bool App::CreateVertexBuffers() {
   VkDeviceSize pos_buffer_size =
       sizeof(glm::vec3) * model_.positions.size();
 
@@ -2214,7 +2214,7 @@ bool App::RecreateSwapChain() {
   if (!CreateShadowFramebuffers())
     return false;
 
-  if (!InitDescriptorSets())
+  if (!CreateDescriptorSets())
     return false;
 
   if (!CreateCommandBuffers())

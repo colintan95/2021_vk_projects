@@ -38,8 +38,8 @@ private:
   bool CreateCommandBuffers();
 
   bool LoadModel();
-  bool InitDescriptorSets();
-  bool InitVertexBuffers();
+  bool CreateDescriptorSets();
+  bool CreateVertexBuffers();
 
   bool RecordCommandBuffers();
   void RecordShadowPassCommands(VkCommandBuffer command_buffer,
