@@ -57,6 +57,7 @@ private:
   void DestroyVertexBuffers();
   void DestroyDescriptorSets();
   void DestroyShadowPassResources();
+  void DestroyScenePassResources();
 
   bool DrawFrame();
 

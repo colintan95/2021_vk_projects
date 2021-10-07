@@ -1974,17 +1974,7 @@ void App::Destroy() {
 
   DestroyShadowPassResources();
 
-  for (const auto& framebuffer : swap_chain_framebuffers_) {
-    vkDestroyFramebuffer(device_, framebuffer, nullptr);
-  }
-  vkDestroyImageView(device_, depth_image_view_, nullptr);
-  vkDestroyImage(device_, depth_image_, nullptr);
-  vkFreeMemory(device_, depth_image_memory_, nullptr);
-
-  vkDestroyPipeline(device_, pipeline_, nullptr);
-  vkDestroyPipelineLayout(device_, pipeline_layout_, nullptr);
-  vkDestroyDescriptorSetLayout(device_, descriptor_set_layout_, nullptr);
-  vkDestroyRenderPass(device_, render_pass_, nullptr);
+  DestroyScenePassResources();
 
   for (const auto& image_view : swap_chain_image_views_) {
     vkDestroyImageView(device_, image_view, nullptr);
@@ -2053,6 +2043,22 @@ void App::DestroyShadowPassResources() {
   vkDestroyPipelineLayout(device_, shadow_pipeline_layout_, nullptr);
   vkDestroyDescriptorSetLayout(device_, shadow_descriptor_layout_, nullptr);
   vkDestroyRenderPass(device_, shadow_render_pass_, nullptr);
+}
+
+void App::DestroyScenePassResources() {
+  for (const auto& framebuffer : swap_chain_framebuffers_) {
+    vkDestroyFramebuffer(device_, framebuffer, nullptr);
+  }
+  swap_chain_framebuffers_.clear();
+
+  vkDestroyImageView(device_, depth_image_view_, nullptr);
+  vkDestroyImage(device_, depth_image_, nullptr);
+  vkFreeMemory(device_, depth_image_memory_, nullptr);
+
+  vkDestroyPipeline(device_, pipeline_, nullptr);
+  vkDestroyPipelineLayout(device_, pipeline_layout_, nullptr);
+  vkDestroyDescriptorSetLayout(device_, descriptor_set_layout_, nullptr);
+  vkDestroyRenderPass(device_, render_pass_, nullptr);
 }
 
 void App::MainLoop() {
@@ -2162,19 +2168,7 @@ bool App::RecreateSwapChain() {
 
   DestroyShadowPassResources();
 
-  for (const auto& framebuffer : swap_chain_framebuffers_) {
-    vkDestroyFramebuffer(device_, framebuffer, nullptr);
-  }
-  swap_chain_framebuffers_.clear();
-
-  vkDestroyImageView(device_, depth_image_view_, nullptr);
-  vkDestroyImage(device_, depth_image_, nullptr);
-  vkFreeMemory(device_, depth_image_memory_, nullptr);
-
-  vkDestroyPipeline(device_, pipeline_, nullptr);
-  vkDestroyPipelineLayout(device_, pipeline_layout_, nullptr);
-  vkDestroyDescriptorSetLayout(device_, descriptor_set_layout_, nullptr);
-  vkDestroyRenderPass(device_, render_pass_, nullptr);
+  DestroyScenePassResources();
 
   for (const auto& image_view : swap_chain_image_views_) {
     vkDestroyImageView(device_, image_view, nullptr);
