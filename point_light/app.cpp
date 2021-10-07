@@ -113,19 +113,18 @@ void DestroyDebugUtilsMessengerEXT(
     func(instance, debug_messenger, allocator);
 }
 
-struct QueueFamilyIndices {
-  std::optional<uint32_t> graphics_family_index;
-  std::optional<uint32_t> present_family_index;
+struct QueueIndices {
+  std::optional<uint32_t> graphics_queue_index;
+  std::optional<uint32_t> present_queue_index;
 };
 
-bool FoundQueueFamilies(const QueueFamilyIndices& indices) {
-  return indices.graphics_family_index.has_value() &&
-      indices.present_family_index.has_value();
+bool FoundQueueIndices(const QueueIndices& indices) {
+  return indices.graphics_queue_index.has_value() &&
+      indices.present_queue_index.has_value();
 }
 
-QueueFamilyIndices FindQueueFamilyIndices(VkPhysicalDevice device,
-                                          VkSurfaceKHR surface) {
-  QueueFamilyIndices indices = {};
+QueueIndices FindQueueIndices(VkPhysicalDevice device, VkSurfaceKHR surface) {
+  QueueIndices indices = {};
 
   uint32_t count;
   vkGetPhysicalDeviceQueueFamilyProperties(device, &count, nullptr);
@@ -137,15 +136,15 @@ QueueFamilyIndices FindQueueFamilyIndices(VkPhysicalDevice device,
     VkQueueFamilyProperties family = families[i];
 
     if ((family.queueFlags & VK_QUEUE_GRAPHICS_BIT) == 1)
-      indices.graphics_family_index = i;
+      indices.graphics_queue_index = i;
 
     VkBool32 present_support = false;
     vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &present_support);
 
     if (present_support)
-      indices.present_family_index = i;
+      indices.present_queue_index = i;
 
-    if (FoundQueueFamilies(indices))
+    if (FoundQueueIndices(indices))
       return indices;
   }
 
@@ -209,8 +208,8 @@ SwapChainSupport QuerySwapChainSupport(VkPhysicalDevice device,
 }
 
 bool IsPhysicalDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface) {
-  QueueFamilyIndices queue_indices = FindQueueFamilyIndices(device, surface);
-  if (!FoundQueueFamilies(queue_indices))
+  QueueIndices queue_indices = FindQueueIndices(device, surface);
+  if (!FoundQueueIndices(queue_indices))
     return false;
 
   if (!SupportsRequiredDeviceExtensions(device))
@@ -558,10 +557,9 @@ bool App::ChoosePhysicalDevice() {
 }
 
 bool App::CreateDevice() {
-  QueueFamilyIndices queue_indices = FindQueueFamilyIndices(physical_device_,
-                                                            surface_);
-  graphics_queue_index_ = queue_indices.graphics_family_index.value();
-  present_queue_index_ = queue_indices.present_family_index.value();
+  QueueIndices queue_indices = FindQueueIndices(physical_device_, surface_);
+  graphics_queue_index_ = queue_indices.graphics_queue_index.value();
+  present_queue_index_ = queue_indices.present_queue_index.value();
 
   std::set<uint32_t> unique_queue_indices = {
     graphics_queue_index_, present_queue_index_
