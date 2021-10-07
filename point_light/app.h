@@ -26,8 +26,6 @@ private:
   bool CreateDevice();
   bool CreateSwapChain();
 
-  bool CreateDescriptorPool();
-
   bool CreateRenderPass();
   bool CreatePipeline();
   bool CreateFramebuffers();
@@ -57,6 +55,7 @@ private:
   void UploadDataToBuffer(void* data, VkDeviceSize size, VkBuffer buffer);
 
   void DestroyVertexBuffers();
+  void DestroyDescriptorSets();
 
   bool DrawFrame();
 

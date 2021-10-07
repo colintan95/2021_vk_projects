@@ -432,9 +432,6 @@ bool App::Init() {
   if (!CreateSwapChain())
     return false;
 
-  if (!CreateDescriptorPool())
-    return false;
-
   if (!CreateRenderPass())
     return false;
 
@@ -690,35 +687,6 @@ bool App::CreateSwapChain() {
       std::cerr << "Could not create swap chain image view." << std::endl;
       return false;
     }
-  }
-  return true;
-}
-
-bool App::CreateDescriptorPool() {
-  VkDescriptorPoolSize uniform_buffer_pool_size = {};
-  uniform_buffer_pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  uniform_buffer_pool_size.descriptorCount =
-      static_cast<uint32_t>(swap_chain_images_.size()) * 2;
-
-  VkDescriptorPoolSize combined_sampler_pool_size = {};
-  combined_sampler_pool_size.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-  combined_sampler_pool_size.descriptorCount =
-      static_cast<uint32_t>(swap_chain_images_.size());
-
-  VkDescriptorPoolSize pool_sizes[] = {
-    uniform_buffer_pool_size, combined_sampler_pool_size
-  };
-
-  VkDescriptorPoolCreateInfo pool_info = {};
-  pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-  pool_info.poolSizeCount = 2;
-  pool_info.pPoolSizes = pool_sizes;
-  pool_info.maxSets = static_cast<uint32_t>(swap_chain_images_.size());
-
-  if (vkCreateDescriptorPool(device_, &pool_info, nullptr, &descriptor_pool_)
-          != VK_SUCCESS) {
-    std::cerr << "Could not create descriptor pool." << std::endl;
-    return false;
   }
   return true;
 }
@@ -1429,6 +1397,32 @@ bool App::LoadModel() {
 }
 
 bool App::InitDescriptorSets() {
+  VkDescriptorPoolSize uniform_buffer_pool_size = {};
+  uniform_buffer_pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  uniform_buffer_pool_size.descriptorCount =
+      static_cast<uint32_t>(swap_chain_images_.size()) * 2;
+
+  VkDescriptorPoolSize combined_sampler_pool_size = {};
+  combined_sampler_pool_size.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  combined_sampler_pool_size.descriptorCount =
+      static_cast<uint32_t>(swap_chain_images_.size());
+
+  VkDescriptorPoolSize pool_sizes[] = {
+    uniform_buffer_pool_size, combined_sampler_pool_size
+  };
+
+  VkDescriptorPoolCreateInfo pool_info = {};
+  pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+  pool_info.poolSizeCount = 2;
+  pool_info.pPoolSizes = pool_sizes;
+  pool_info.maxSets = static_cast<uint32_t>(swap_chain_images_.size());
+
+  if (vkCreateDescriptorPool(device_, &pool_info, nullptr, &descriptor_pool_)
+          != VK_SUCCESS) {
+    std::cerr << "Could not create descriptor pool." << std::endl;
+    return false;
+  }
+
   std::vector<VkDescriptorSetLayout> layouts(swap_chain_images_.size(),
                                              descriptor_set_layout_);
   VkDescriptorSetAllocateInfo alloc_info = {};
@@ -1974,19 +1968,9 @@ void App::Destroy() {
 
   DestroyVertexBuffers();
 
-  vkDestroySampler(device_, shadow_texture_sampler_, nullptr);
+  DestroyDescriptorSets();
 
-  for (int i = 0; i < swap_chain_images_.size(); ++i) {
-    vkDestroyBuffer(device_, frag_ubo_buffers_[i], nullptr);
-    vkFreeMemory(device_, frag_ubo_buffers_memory_[i], nullptr);
-  }
 
-  for (int i = 0; i < swap_chain_images_.size(); ++i) {
-    vkDestroyBuffer(device_, vert_ubo_buffers_[i], nullptr);
-    vkFreeMemory(device_, vert_ubo_buffers_memory_[i], nullptr);
-  }
-
-  vkDestroyDescriptorPool(device_, descriptor_pool_, nullptr);
   vkDestroyCommandPool(device_, command_pool_, nullptr);
 
   for (ShadowPassFrameResource& frame : shadow_frame_resources_) {
@@ -2044,6 +2028,27 @@ void App::DestroyVertexBuffers() {
 
   vkDestroyBuffer(device_, position_buffer_, nullptr);
   vkFreeMemory(device_, position_buffer_memory_, nullptr);
+}
+
+void App::DestroyDescriptorSets() {
+  vkDestroySampler(device_, shadow_texture_sampler_, nullptr);
+
+  for (int i = 0; i < swap_chain_images_.size(); ++i) {
+    vkDestroyBuffer(device_, frag_ubo_buffers_[i], nullptr);
+    vkFreeMemory(device_, frag_ubo_buffers_memory_[i], nullptr);
+  }
+  frag_ubo_buffers_.clear();
+  frag_ubo_buffers_memory_.clear();
+
+  for (int i = 0; i < swap_chain_images_.size(); ++i) {
+    vkDestroyBuffer(device_, vert_ubo_buffers_[i], nullptr);
+    vkFreeMemory(device_, vert_ubo_buffers_memory_[i], nullptr);
+  }
+  vert_ubo_buffers_.clear();
+  vert_ubo_buffers_memory_.clear();
+
+  vkDestroyDescriptorPool(device_, descriptor_pool_, nullptr);
+  descriptor_sets_.clear();
 }
 
 void App::MainLoop() {
@@ -2149,24 +2154,7 @@ bool App::RecreateSwapChain() {
 
   vkDeviceWaitIdle(device_);
 
-  vkDestroySampler(device_, shadow_texture_sampler_, nullptr);
-
-  for (int i = 0; i < swap_chain_images_.size(); ++i) {
-    vkDestroyBuffer(device_, frag_ubo_buffers_[i], nullptr);
-    vkFreeMemory(device_, frag_ubo_buffers_memory_[i], nullptr);
-  }
-  frag_ubo_buffers_.clear();
-  frag_ubo_buffers_memory_.clear();
-
-  for (int i = 0; i < swap_chain_images_.size(); ++i) {
-    vkDestroyBuffer(device_, vert_ubo_buffers_[i], nullptr);
-    vkFreeMemory(device_, vert_ubo_buffers_memory_[i], nullptr);
-  }
-  vert_ubo_buffers_.clear();
-  vert_ubo_buffers_memory_.clear();
-
-  vkDestroyDescriptorPool(device_, descriptor_pool_, nullptr);
-  descriptor_sets_.clear();
+  DestroyDescriptorSets();
 
   for (ShadowPassFrameResource& frame : shadow_frame_resources_) {
     vkDestroyImageView(device_, frame.shadow_texture_view, nullptr);
@@ -2206,9 +2194,6 @@ bool App::RecreateSwapChain() {
   vkDestroySwapchainKHR(device_, swap_chain_, nullptr);
 
   if (!CreateSwapChain())
-    return false;
-
-  if (!CreateDescriptorPool())
     return false;
 
   if (!CreateRenderPass())
