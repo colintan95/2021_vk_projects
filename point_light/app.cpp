@@ -28,8 +28,8 @@ const char* kRequiredDeviceExtensions[] = {
 constexpr int kShadowTextureWidth = 1024;
 constexpr int kShadowTextureHeight = 1024;
 
-constexpr float kShadowPassNearPlane = 0.1f;
-constexpr float kShadowPassFarPlane = 5.f;
+constexpr float kShadowPassNearPlane = 0.01f;
+constexpr float kShadowPassFarPlane = 10.f;
 
 constexpr int kMaxFramesInFlight = 3;
 
