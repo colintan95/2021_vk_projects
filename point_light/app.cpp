@@ -459,13 +459,10 @@ bool App::Init() {
   if (!CreateCommandBuffers())
     return false;
 
-  if (!CreateDescriptorSets())
-    return false;
-
   if (!LoadModel())
     return false;
 
-  if (!InitDescriptors())
+  if (!InitDescriptorSets())
     return false;
 
   if (!InitVertexBuffers())
@@ -1424,7 +1421,14 @@ bool App::CreateCommandBuffers() {
   return true;
 }
 
-bool App::CreateDescriptorSets() {
+bool App::LoadModel() {
+  if (!utils::LoadModel("cornell_box.obj", &model_)) {
+    return false;
+  }
+  return true;
+}
+
+bool App::InitDescriptorSets() {
   std::vector<VkDescriptorSetLayout> layouts(swap_chain_images_.size(),
                                              descriptor_set_layout_);
   VkDescriptorSetAllocateInfo alloc_info = {};
@@ -1440,18 +1444,7 @@ bool App::CreateDescriptorSets() {
     std::cerr << "Could not create descriptor sets." << std::endl;
     return false;
   }
-  return true;
-}
 
-bool App::LoadModel() {
-  if (!utils::LoadModel("cornell_box.obj", &model_)) {
-    std::cerr << "Could not load model." << std::endl;
-    return false;
-  }
-  return true;
-}
-
-bool App::InitDescriptors() {
   struct VertexShaderUbo {
     glm::mat4 model_mat;
     glm::mat4 mvp_mat;
@@ -2236,10 +2229,7 @@ bool App::RecreateSwapChain() {
   if (!CreateShadowFramebuffers())
     return false;
 
-  if (!CreateDescriptorSets())
-    return false;
-
-  if (!InitDescriptors())
+  if (!InitDescriptorSets())
     return false;
 
   if (!CreateCommandBuffers())

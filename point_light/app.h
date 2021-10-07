@@ -38,10 +38,9 @@ private:
 
   bool CreateCommandPool();
   bool CreateCommandBuffers();
-  bool CreateDescriptorSets();
 
   bool LoadModel();
-  bool InitDescriptors();
+  bool InitDescriptorSets();
   bool InitVertexBuffers();
 
   bool RecordCommandBuffers();
