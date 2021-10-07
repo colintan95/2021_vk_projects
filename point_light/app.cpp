@@ -432,13 +432,7 @@ bool App::Init() {
   if (!CreateSwapChain())
     return false;
 
-  if (!CreateRenderPass())
-    return false;
-
-  if (!CreatePipeline())
-    return false;
-
-  if (!CreateFramebuffers())
+  if (!CreateScenePassResources())
     return false;
 
   if (!CreateShadowRenderPass())
@@ -688,6 +682,19 @@ bool App::CreateSwapChain() {
       return false;
     }
   }
+  return true;
+}
+
+bool App::CreateScenePassResources() {
+  if (!CreateRenderPass())
+    return false;
+
+  if (!CreatePipeline())
+    return false;
+
+  if (!CreateFramebuffers())
+    return false;
+
   return true;
 }
 
@@ -1053,6 +1060,19 @@ bool App::CreateFramebuffers() {
       return false;
     }
   }
+  return true;
+}
+
+bool App::CreateShadowPassResources() {
+  if (!CreateShadowRenderPass())
+    return false;
+
+  if (!CreateShadowPipeline())
+    return false;
+
+  if (!CreateShadowFramebuffers())
+    return false;
+
   return true;
 }
 
@@ -2182,22 +2202,10 @@ bool App::RecreateSwapChain() {
   if (!CreateSwapChain())
     return false;
 
-  if (!CreateRenderPass())
+  if (!CreateScenePassResources())
     return false;
 
-  if (!CreatePipeline())
-    return false;
-
-  if (!CreateFramebuffers())
-    return false;
-
-  if (!CreateShadowRenderPass())
-    return false;
-
-  if (!CreateShadowPipeline())
-    return false;
-
-  if (!CreateShadowFramebuffers())
+  if (!CreateShadowPassResources())
     return false;
 
   if (!CreateDescriptorSets())

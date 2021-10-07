@@ -26,9 +26,13 @@ private:
   bool CreateDevice();
   bool CreateSwapChain();
 
+  bool CreateScenePassResources();
+
   bool CreateRenderPass();
   bool CreatePipeline();
   bool CreateFramebuffers();
+
+  bool CreateShadowPassResources();
 
   bool CreateShadowRenderPass();
   bool CreateShadowPipeline();
