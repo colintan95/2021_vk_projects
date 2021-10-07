@@ -1970,25 +1970,9 @@ void App::Destroy() {
 
   DestroyDescriptorSets();
 
-
   vkDestroyCommandPool(device_, command_pool_, nullptr);
 
-  for (ShadowPassFrameResource& frame : shadow_frame_resources_) {
-    vkDestroyImageView(device_, frame.shadow_texture_view, nullptr);
-    for (VkFramebuffer framebuffer : frame.depth_framebuffers) {
-      vkDestroyFramebuffer(device_, framebuffer, nullptr);
-    }
-    for (VkImageView image_view : frame.depth_framebuffer_views) {
-      vkDestroyImageView(device_, image_view, nullptr);
-    }
-    vkDestroyImage(device_, frame.shadow_texture, nullptr);
-    vkFreeMemory(device_, frame.shadow_texture_memory, nullptr);
-  }
-
-  vkDestroyPipeline(device_, shadow_pipeline_, nullptr);
-  vkDestroyPipelineLayout(device_, shadow_pipeline_layout_, nullptr);
-  vkDestroyDescriptorSetLayout(device_, shadow_descriptor_layout_, nullptr);
-  vkDestroyRenderPass(device_, shadow_render_pass_, nullptr);
+  DestroyShadowPassResources();
 
   for (const auto& framebuffer : swap_chain_framebuffers_) {
     vkDestroyFramebuffer(device_, framebuffer, nullptr);
@@ -2049,6 +2033,26 @@ void App::DestroyDescriptorSets() {
 
   vkDestroyDescriptorPool(device_, descriptor_pool_, nullptr);
   descriptor_sets_.clear();
+}
+
+void App::DestroyShadowPassResources() {
+  for (ShadowPassFrameResource& frame : shadow_frame_resources_) {
+    vkDestroyImageView(device_, frame.shadow_texture_view, nullptr);
+    for (VkFramebuffer framebuffer : frame.depth_framebuffers) {
+      vkDestroyFramebuffer(device_, framebuffer, nullptr);
+    }
+    for (VkImageView image_view : frame.depth_framebuffer_views) {
+      vkDestroyImageView(device_, image_view, nullptr);
+    }
+    vkDestroyImage(device_, frame.shadow_texture, nullptr);
+    vkFreeMemory(device_, frame.shadow_texture_memory, nullptr);
+  }
+  shadow_frame_resources_.clear();
+
+  vkDestroyPipeline(device_, shadow_pipeline_, nullptr);
+  vkDestroyPipelineLayout(device_, shadow_pipeline_layout_, nullptr);
+  vkDestroyDescriptorSetLayout(device_, shadow_descriptor_layout_, nullptr);
+  vkDestroyRenderPass(device_, shadow_render_pass_, nullptr);
 }
 
 void App::MainLoop() {
@@ -2156,22 +2160,7 @@ bool App::RecreateSwapChain() {
 
   DestroyDescriptorSets();
 
-  for (ShadowPassFrameResource& frame : shadow_frame_resources_) {
-    vkDestroyImageView(device_, frame.shadow_texture_view, nullptr);
-    for (VkFramebuffer framebuffer : frame.depth_framebuffers) {
-      vkDestroyFramebuffer(device_, framebuffer, nullptr);
-    }
-    for (VkImageView image_view : frame.depth_framebuffer_views) {
-      vkDestroyImageView(device_, image_view, nullptr);
-    }
-    vkDestroyImage(device_, frame.shadow_texture, nullptr);
-    vkFreeMemory(device_, frame.shadow_texture_memory, nullptr);
-  }
-
-  vkDestroyPipeline(device_, shadow_pipeline_, nullptr);
-  vkDestroyPipelineLayout(device_, shadow_pipeline_layout_, nullptr);
-  vkDestroyDescriptorSetLayout(device_, shadow_descriptor_layout_, nullptr);
-  vkDestroyRenderPass(device_, shadow_render_pass_, nullptr);
+  DestroyShadowPassResources();
 
   for (const auto& framebuffer : swap_chain_framebuffers_) {
     vkDestroyFramebuffer(device_, framebuffer, nullptr);
