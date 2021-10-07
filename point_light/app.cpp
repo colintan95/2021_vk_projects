@@ -209,6 +209,22 @@ bool IsPhysicalDeviceSuitable(VkPhysicalDevice physical_device,
   return true;
 }
 
+VkSampleCountFlagBits ChooseMsaaSampleCount(VkPhysicalDevice physical_device) {
+  VkPhysicalDeviceProperties phys_device_props;
+  vkGetPhysicalDeviceProperties(physical_device, &phys_device_props);
+
+  VkSampleCountFlags sample_count_flags =
+      phys_device_props.limits.framebufferColorSampleCounts &
+      phys_device_props.limits.framebufferDepthSampleCounts;
+
+  if (sample_count_flags & VK_SAMPLE_COUNT_4_BIT) {
+    return VK_SAMPLE_COUNT_4_BIT;
+  } else if (sample_count_flags & VK_SAMPLE_COUNT_2_BIT) {
+    return VK_SAMPLE_COUNT_2_BIT;
+  }
+  return VK_SAMPLE_COUNT_1_BIT;
+}
+
 VkSurfaceFormatKHR ChooseSurfaceFormat(VkPhysicalDevice physical_device,
                                        VkSurfaceKHR surface) {
   uint32_t formats_count;
@@ -537,7 +553,8 @@ bool App::ChoosePhysicalDevice() {
   }
 
   std::vector<VkPhysicalDevice> phys_devices(phys_devices_count);
-  vkEnumeratePhysicalDevices(instance_, &phys_devices_count, phys_devices.data());
+  vkEnumeratePhysicalDevices(instance_, &phys_devices_count,
+                             phys_devices.data());
 
   for (const auto& phys_device : phys_devices) {
     if (IsPhysicalDeviceSuitable(phys_device, surface_)) {
