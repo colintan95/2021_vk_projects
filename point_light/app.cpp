@@ -711,7 +711,7 @@ bool App::CreateRenderPass() {
   color_attachment.format = swap_chain_image_format_;
   color_attachment.samples = msaa_sample_count_;
   color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-  color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+  color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
   color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
   color_attachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
