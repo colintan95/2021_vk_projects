@@ -36,7 +36,7 @@ constexpr int kMaxFramesInFlight = 3;
 
 constexpr float kPi = glm::pi<float>();
 
-constexpr float kStrafeSpeed = 0.1f;
+constexpr float kStrafeSpeed = 3.f;
 
 bool SupportsValidationLayers() {
   uint32_t count;
@@ -472,9 +472,6 @@ if (!utils::LoadModel("cornell_box.obj", &model_))
     return false;
 
   if (!CreateVertexBuffers())
-    return false;
-
-  if (!RecordCommandBuffers())
     return false;
 
   if (!CreateSyncObjects())
@@ -1472,6 +1469,7 @@ bool App::CreateCommandPool() {
   VkCommandPoolCreateInfo command_pool_info = {};
   command_pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
   command_pool_info.queueFamilyIndex = graphics_queue_index_;
+  command_pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
   if (vkCreateCommandPool(device_, &command_pool_info, nullptr, &command_pool_)
           != VK_SUCCESS) {
@@ -1542,20 +1540,7 @@ bool App::CreateDescriptorSets() {
     return false;
   }
 
-  struct VertexShaderUbo {
-    glm::mat4 model_mat;
-    glm::mat4 mvp_mat;
-  } vert_ubo_data;
-
-  float aspect_ratio = static_cast<float>(swap_chain_extent_.width) /
-      static_cast<float>(swap_chain_extent_.height);
-
-  glm::mat4 model_mat = glm::mat4(1.f);
-  glm::mat4 view_mat = camera_.GetViewMat();
-  glm::mat4 proj_mat = glm::perspective(glm::radians(45.f), aspect_ratio, 0.1f,
-                                        100.f);
-  proj_mat[1][1] *= -1;
-
+  model_mat_ = glm::mat4(1.f);
   glm::vec3 light_pos = glm::vec3(0.f, 1.9f, 0.f);
 
   float shadow_tex_aspect_ratio = static_cast<float>(kShadowTextureWidth) /
@@ -1592,21 +1577,16 @@ bool App::CreateDescriptorSets() {
 
   shadow_mats_.resize(6);
   for (int i = 0; i < shadow_mats_.size(); ++i) {
-    shadow_mats_[i] = shadow_proj_mat * shadow_view_mats[i] * model_mat;
+    shadow_mats_[i] = shadow_proj_mat * shadow_view_mats[i] * model_mat_;
   }
-
-  vert_ubo_data.model_mat = model_mat;
-  vert_ubo_data.mvp_mat = proj_mat * view_mat * model_mat;
 
   vert_ubo_buffers_.resize(swap_chain_images_.size());
   vert_ubo_buffers_memory_.resize(swap_chain_images_.size());
 
-  VkDeviceSize vert_ubo_buffer_size = sizeof(VertexShaderUbo);
-
   for (size_t i = 0; i < swap_chain_images_.size(); i++) {
     VkBufferCreateInfo vert_ubo_buffer_info = {};
     vert_ubo_buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    vert_ubo_buffer_info.size = vert_ubo_buffer_size;
+    vert_ubo_buffer_info.size = sizeof(VertexShaderUbo);
     vert_ubo_buffer_info.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
     vert_ubo_buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
@@ -1615,28 +1595,6 @@ bool App::CreateDescriptorSets() {
                      VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                  physical_device_, device_, &vert_ubo_buffers_[i],
                  &vert_ubo_buffers_memory_[i]);
-
-    VertexShaderUbo* ubo_ptr;
-    vkMapMemory(device_, vert_ubo_buffers_memory_[i], 0, vert_ubo_buffer_size,
-                0, reinterpret_cast<void**>(&ubo_ptr));
-    *ubo_ptr = vert_ubo_data;
-    vkUnmapMemory(device_, vert_ubo_buffers_memory_[i]);
-
-    VkDescriptorBufferInfo descriptor_buffer_info = {};
-    descriptor_buffer_info.buffer = vert_ubo_buffers_[i];
-    descriptor_buffer_info.offset = 0;
-    descriptor_buffer_info.range = vert_ubo_buffer_size;
-
-    VkWriteDescriptorSet descriptor_write = {};
-    descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptor_write.dstSet = descriptor_sets_[i];
-    descriptor_write.dstBinding = 0;
-    descriptor_write.dstArrayElement = 0;
-    descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    descriptor_write.descriptorCount = 1;
-    descriptor_write.pBufferInfo = &descriptor_buffer_info;
-
-    vkUpdateDescriptorSets(device_, 1, &descriptor_write, 0, nullptr);
   }
 
   struct Material {
@@ -1745,6 +1703,41 @@ bool App::CreateDescriptorSets() {
   }
 
   return true;
+}
+
+void App::UpdateScenePassMatrices(int frame_index) {
+  float aspect_ratio = static_cast<float>(swap_chain_extent_.width) /
+      static_cast<float>(swap_chain_extent_.height);
+
+  glm::mat4 view_mat = camera_.GetViewMat();
+  glm::mat4 proj_mat = glm::perspective(glm::radians(45.f), aspect_ratio, 0.1f,
+                                        100.f);
+  proj_mat[1][1] *= -1;
+
+  VkDeviceSize vert_ubo_buffer_size = sizeof(VertexShaderUbo);
+
+  VertexShaderUbo* ubo_ptr;
+  vkMapMemory(device_, vert_ubo_buffers_memory_[frame_index], 0,
+              vert_ubo_buffer_size, 0, reinterpret_cast<void**>(&ubo_ptr));
+  ubo_ptr->model_mat = model_mat_;
+  ubo_ptr->mvp_mat = proj_mat * view_mat * model_mat_;
+  vkUnmapMemory(device_, vert_ubo_buffers_memory_[frame_index]);
+
+  VkDescriptorBufferInfo descriptor_buffer_info = {};
+  descriptor_buffer_info.buffer = vert_ubo_buffers_[frame_index];
+  descriptor_buffer_info.offset = 0;
+  descriptor_buffer_info.range = vert_ubo_buffer_size;
+
+  VkWriteDescriptorSet descriptor_write = {};
+  descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  descriptor_write.dstSet = descriptor_sets_[frame_index];
+  descriptor_write.dstBinding = 0;
+  descriptor_write.dstArrayElement = 0;
+  descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  descriptor_write.descriptorCount = 1;
+  descriptor_write.pBufferInfo = &descriptor_buffer_info;
+
+  vkUpdateDescriptorSets(device_, 1, &descriptor_write, 0, nullptr);
 }
 
 bool App::CreateVertexBuffers() {
@@ -1875,31 +1868,31 @@ void App::UploadDataToBuffer(void* data, VkDeviceSize size, VkBuffer buffer) {
   vkFreeCommandBuffers(device_, command_pool_, 1, &command_buffer);
 }
 
-bool App::RecordCommandBuffers() {
-  for (int i = 0; i < command_buffers_.size(); ++i) {
-    VkCommandBuffer command_buffer = command_buffers_[i];
+bool App::RecordCommandBuffer(int frame_index) {
+  VkCommandBuffer command_buffer = command_buffers_[frame_index];
+  vkResetCommandBuffer(command_buffer, 0);
 
-    VkCommandBufferBeginInfo begin_info = {};
-    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  VkCommandBufferBeginInfo begin_info = {};
+  begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-    if (vkBeginCommandBuffer(command_buffer, &begin_info) != VK_SUCCESS) {
-      std::cerr << "Could not begin command buffer." << std::endl;
-      return false;
-    }
-
-    RecordShadowPassCommands(command_buffer, i);
-
-    TransitionShadowTextureForShaderRead(command_buffer, i);
-
-    RecordScenePassCommands(command_buffer, i);
-
-    TransitionShadowTextureForRendering(command_buffer, i);
-
-    if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS) {
-      std::cerr << "Could not end command buffer." << std::endl;
-      return false;
-    }
+  if (vkBeginCommandBuffer(command_buffer, &begin_info) != VK_SUCCESS) {
+    std::cerr << "Could not begin command buffer." << std::endl;
+    return false;
   }
+
+  RecordShadowPassCommands(command_buffer, frame_index);
+
+  TransitionShadowTextureForShaderRead(command_buffer, frame_index);
+
+  RecordScenePassCommands(command_buffer, frame_index);
+
+  TransitionShadowTextureForRendering(command_buffer, frame_index);
+
+  if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS) {
+    std::cerr << "Could not end command buffer." << std::endl;
+    return false;
+  }
+
   return true;
 }
 
@@ -2195,7 +2188,7 @@ void App::MainLoop() {
     if (!DrawFrame())
       break;
 
-    bool previous_frame_time = current_frame_time_;
+    double previous_frame_time = current_frame_time_;
     current_frame_time_ = glfwGetTime();
 
     double time_elapsed = current_frame_time_ - previous_frame_time;
@@ -2228,6 +2221,11 @@ bool App::DrawFrame() {
   image_rendered_fences_[image_index] = frame_ready_fences_[current_frame_];
 
   vkResetFences(device_, 1, &frame_ready_fences_[current_frame_]);
+
+  UpdateScenePassMatrices(current_frame_);
+
+  if (!RecordCommandBuffer(current_frame_))
+    return false;
 
   VkSemaphore submit_wait_semaphores[] = {
     image_ready_semaphores_[current_frame_]
@@ -2321,9 +2319,6 @@ bool App::RecreateSwapChain() {
     return false;
 
   if (!CreateCommandBuffers())
-    return false;
-
-  if (!RecordCommandBuffers())
     return false;
 
   image_rendered_fences_.resize(swap_chain_images_.size(), VK_NULL_HANDLE);

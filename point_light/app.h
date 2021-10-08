@@ -45,9 +45,11 @@ private:
   bool CreateCommandBuffers();
 
   bool CreateDescriptorSets();
+  void UpdateScenePassMatrices(int frame_index);
+
   bool CreateVertexBuffers();
 
-  bool RecordCommandBuffers();
+  bool RecordCommandBuffer(int frame_index);
   void RecordShadowPassCommands(VkCommandBuffer command_buffer,
                                 int frame_index);
   void TransitionShadowTextureForShaderRead(VkCommandBuffer command_buffer,
@@ -72,12 +74,18 @@ private:
 
   bool RecreateSwapChain();
 
+  struct VertexShaderUbo {
+    glm::mat4 model_mat;
+    glm::mat4 mvp_mat;
+  };
+
   int current_frame_ = 0;
   double current_frame_time_ = 0.0;
 
   utils::Camera camera_;
   utils::Model model_;
 
+  glm::mat4 model_mat_;
   std::vector<glm::mat4> shadow_mats_;
 
   uint32_t graphics_queue_index_;
