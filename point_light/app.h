@@ -21,6 +21,8 @@ public:
 
 private:
   static void GlfwFramebufferResized(GLFWwindow* window, int width, int height);
+  static void GlfwKeyCallback(GLFWwindow* window, int key, int scancode,
+                              int action, int mods);
 
   bool InitInstanceAndSurface();
   bool ChoosePhysicalDevice();
@@ -71,6 +73,7 @@ private:
   bool RecreateSwapChain();
 
   int current_frame_ = 0;
+  double current_frame_time_ = 0.0;
 
   utils::Camera camera_;
   utils::Model model_;

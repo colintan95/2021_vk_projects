@@ -36,6 +36,8 @@ constexpr int kMaxFramesInFlight = 3;
 
 constexpr float kPi = glm::pi<float>();
 
+constexpr float kStrafeSpeed = 0.1f;
+
 bool SupportsValidationLayers() {
   uint32_t count;
   vkEnumerateInstanceLayerProperties(&count, nullptr);
@@ -432,8 +434,10 @@ bool App::Init() {
   glfwWindowHint(GLFW_SCALE_TO_MONITOR , GL_TRUE);
 
   window_ = glfwCreateWindow(800, 600, "Vulkan Application", nullptr, nullptr);
+
   glfwSetWindowUserPointer(window_, this);
   glfwSetFramebufferSizeCallback(window_, GlfwFramebufferResized);
+  glfwSetKeyCallback(window_, GlfwKeyCallback);
 
 if (!utils::LoadModel("cornell_box.obj", &model_))
     return false;
@@ -482,6 +486,25 @@ if (!utils::LoadModel("cornell_box.obj", &model_))
 void App::GlfwFramebufferResized(GLFWwindow* window, int width, int height) {
   auto app = reinterpret_cast<App*>(glfwGetWindowUserPointer(window));
   app->framebuffer_resized_ = true;
+}
+
+void App::GlfwKeyCallback(GLFWwindow* window, int key, int scancode, int action,
+                          int mods) {
+  auto app = reinterpret_cast<App*>(glfwGetWindowUserPointer(window));
+
+  if (key == GLFW_KEY_A) {
+    if (action == GLFW_PRESS)
+      app->camera_.StartMovement(utils::Camera::Direction::kNegX, kStrafeSpeed);
+    else if (action == GLFW_RELEASE)
+      app->camera_.StopMovement(utils::Camera::Direction::kNegX);
+  }
+
+  if (key == GLFW_KEY_D) {
+    if (action == GLFW_PRESS)
+      app->camera_.StartMovement(utils::Camera::Direction::kPosX, kStrafeSpeed);
+    else if (action == GLFW_RELEASE)
+      app->camera_.StopMovement(utils::Camera::Direction::kPosX);
+  }
 }
 
 bool App::InitInstanceAndSurface() {
@@ -2164,10 +2187,19 @@ void App::DestroySwapChain() {
 }
 
 void App::MainLoop() {
+  current_frame_time_ = glfwGetTime();
+
   while (!glfwWindowShouldClose(window_)) {
     glfwPollEvents();
+
     if (!DrawFrame())
       break;
+
+    bool previous_frame_time = current_frame_time_;
+    current_frame_time_ = glfwGetTime();
+
+    double time_elapsed = current_frame_time_ - previous_frame_time;
+    camera_.Tick(static_cast<float>(time_elapsed * 1000.0));
   }
   vkDeviceWaitIdle(device_);
 }
