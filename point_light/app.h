@@ -9,6 +9,7 @@
 
 #include <vector>
 
+#include "utils/camera.h"
 #include "utils/model.h"
 
 class App {
@@ -41,7 +42,6 @@ private:
   bool CreateCommandPool();
   bool CreateCommandBuffers();
 
-  bool LoadModel();
   bool CreateDescriptorSets();
   bool CreateVertexBuffers();
 
@@ -72,7 +72,9 @@ private:
 
   int current_frame_ = 0;
 
+  utils::Camera camera_;
   utils::Model model_;
+
   std::vector<glm::mat4> shadow_mats_;
 
   uint32_t graphics_queue_index_;

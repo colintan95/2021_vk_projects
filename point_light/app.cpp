@@ -1,4 +1,4 @@
-#include "app.h"
+#include "point_light/app.h"
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
@@ -13,6 +13,7 @@
 #include <string_view>
 #include <vector>
 
+#include "utils/camera.h"
 #include "utils/model.h"
 
 namespace {
@@ -434,6 +435,11 @@ bool App::Init() {
   glfwSetWindowUserPointer(window_, this);
   glfwSetFramebufferSizeCallback(window_, GlfwFramebufferResized);
 
+if (!utils::LoadModel("cornell_box.obj", &model_))
+    return false;
+
+  camera_.SetPosition(glm::vec3(0.f, 1.f, 4.f));
+
   if (!InitInstanceAndSurface())
     return false;
 
@@ -456,9 +462,6 @@ bool App::Init() {
     return false;
 
   if (!CreateCommandBuffers())
-    return false;
-
-  if (!LoadModel())
     return false;
 
   if (!CreateDescriptorSets())
@@ -1473,13 +1476,6 @@ bool App::CreateCommandBuffers() {
   return true;
 }
 
-bool App::LoadModel() {
-  if (!utils::LoadModel("cornell_box.obj", &model_)) {
-    return false;
-  }
-  return true;
-}
-
 bool App::CreateDescriptorSets() {
   VkDescriptorPoolSize uniform_buffer_pool_size = {};
   uniform_buffer_pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -1532,8 +1528,7 @@ bool App::CreateDescriptorSets() {
       static_cast<float>(swap_chain_extent_.height);
 
   glm::mat4 model_mat = glm::mat4(1.f);
-  glm::mat4 view_mat = glm::translate(glm::mat4(1.f),
-                                      glm::vec3(0.f, -1.f, -4.f));
+  glm::mat4 view_mat = camera_.GetViewMat();
   glm::mat4 proj_mat = glm::perspective(glm::radians(45.f), aspect_ratio, 0.1f,
                                         100.f);
   proj_mat[1][1] *= -1;
