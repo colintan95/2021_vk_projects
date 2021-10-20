@@ -50,13 +50,13 @@ private:
   bool CreateVertexBuffers();
 
   bool RecordCommandBuffer(int frame_index);
+  void TransitionShadowTextureForShadowPass(VkCommandBuffer command_buffer,
+                                            int frame_index);
   void RecordShadowPassCommands(VkCommandBuffer command_buffer,
                                 int frame_index);
-  void TransitionShadowTextureForShaderRead(VkCommandBuffer command_buffer,
-                                            int frame_index);
-  void RecordScenePassCommands(VkCommandBuffer command_buffer, int frame_index);
-  void TransitionShadowTextureForRendering(VkCommandBuffer command_buffer,
+  void TransitionShadowTextureForScenePass(VkCommandBuffer command_buffer,
                                            int frame_index);
+  void RecordScenePassCommands(VkCommandBuffer command_buffer, int frame_index);
 
   bool CreateSyncObjects();
 

@@ -1880,13 +1880,13 @@ bool App::RecordCommandBuffer(int frame_index) {
     return false;
   }
 
+  TransitionShadowTextureForShadowPass(command_buffer, frame_index);
+
   RecordShadowPassCommands(command_buffer, frame_index);
 
-  TransitionShadowTextureForShaderRead(command_buffer, frame_index);
+  TransitionShadowTextureForScenePass(command_buffer, frame_index);
 
   RecordScenePassCommands(command_buffer, frame_index);
-
-  TransitionShadowTextureForRendering(command_buffer, frame_index);
 
   if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS) {
     std::cerr << "Could not end command buffer." << std::endl;
@@ -1894,6 +1894,31 @@ bool App::RecordCommandBuffer(int frame_index) {
   }
 
   return true;
+}
+
+void App::TransitionShadowTextureForShadowPass(VkCommandBuffer command_buffer,
+                                               int frame_index) {
+  ShadowPassFrameResource& frame = shadow_frame_resources_[frame_index];
+
+  VkImageMemoryBarrier barrier = {};
+  barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+  barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+  barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+  barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+  barrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+  barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.image = frame.shadow_texture;
+  barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+  barrier.subresourceRange.baseMipLevel = 0;
+  barrier.subresourceRange.levelCount = 1;
+  barrier.subresourceRange.baseArrayLayer = 0;
+  barrier.subresourceRange.layerCount = 6;
+
+  vkCmdPipelineBarrier(command_buffer,
+                       VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                       VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, 0, 0,
+                       nullptr, 0, nullptr, 1, &barrier);
 }
 
 void App::RecordShadowPassCommands(VkCommandBuffer command_buffer,
@@ -1938,7 +1963,7 @@ void App::RecordShadowPassCommands(VkCommandBuffer command_buffer,
   }
 }
 
-void App::TransitionShadowTextureForShaderRead(VkCommandBuffer command_buffer,
+void App::TransitionShadowTextureForScenePass(VkCommandBuffer command_buffer,
                                               int frame_index) {
   ShadowPassFrameResource& frame = shadow_frame_resources_[frame_index];
 
@@ -2000,31 +2025,6 @@ void App::RecordScenePassCommands(VkCommandBuffer command_buffer,
   vkCmdDrawIndexed(command_buffer, model_.index_buffer.size(), 1, 0, 0, 0);
 
   vkCmdEndRenderPass(command_buffer);
-}
-
-void App::TransitionShadowTextureForRendering(VkCommandBuffer command_buffer,
-                                              int frame_index) {
-  ShadowPassFrameResource& frame = shadow_frame_resources_[frame_index];
-
-  VkImageMemoryBarrier barrier = {};
-  barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-  barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
-  barrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-  barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  barrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-  barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-  barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-  barrier.image = frame.shadow_texture;
-  barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-  barrier.subresourceRange.baseMipLevel = 0;
-  barrier.subresourceRange.levelCount = 1;
-  barrier.subresourceRange.baseArrayLayer = 0;
-  barrier.subresourceRange.layerCount = 6;
-
-  vkCmdPipelineBarrier(command_buffer,
-                       VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-                       VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, 0, 0,
-                       nullptr, 0, nullptr, 1, &barrier);
 }
 
 bool App::CreateSyncObjects() {
