@@ -1,6 +1,9 @@
 #include "utils/vk.h"
 
+#include <vulkan/vulkan.h>
+
 #include <fstream>
+#include <vector>
 
 namespace utils {
 namespace vk {
@@ -25,6 +28,53 @@ std::vector<char> LoadShaderFile(const std::string& path) {
 }
 
 }  // namespace
+
+bool SupportsValidationLayers(const std::vector<const char*>& layers) {
+  uint32_t count;
+  vkEnumerateInstanceLayerProperties(&count, nullptr);
+
+  std::vector<VkLayerProperties> available_layers(count);
+  vkEnumerateInstanceLayerProperties(&count, available_layers.data());
+
+  for (const char* layer_name : layers) {
+    bool found = false;
+    for (const auto& available_layer : available_layers) {
+      if (strcmp(available_layer.layerName, layer_name) == 0) {
+        found = true;
+        break;
+      }
+    }
+    if (!found)
+      return false;
+  }
+
+  return true;
+}
+
+bool SupportsDeviceExtensions(VkPhysicalDevice physical_device,
+                              const std::vector<const char*>& extensions) {
+  uint32_t count;
+  vkEnumerateDeviceExtensionProperties(physical_device, nullptr, &count,
+                                       nullptr);
+
+  std::vector<VkExtensionProperties> available_extensions(count);
+  vkEnumerateDeviceExtensionProperties(physical_device, nullptr, &count,
+                                       available_extensions.data());
+
+  for (const char* extension_name : extensions) {
+    bool found = false;
+    for (const auto& available_extension : available_extensions) {
+      if (strcmp(available_extension.extensionName, extension_name) == 0) {
+        found = true;
+        break;
+      }
+    }
+    if (!found)
+      return false;
+  }
+
+  return true;
+}
 
 bool CreateShaderModulesFromFiles(const std::vector<std::string>& file_paths,
                                   VkDevice device,

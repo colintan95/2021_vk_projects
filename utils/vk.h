@@ -9,6 +9,11 @@
 namespace utils {
 namespace vk {
 
+bool SupportsValidationLayers(const std::vector<const char*>& layers);
+
+bool SupportsDeviceExtensions(VkPhysicalDevice physical_device,
+                              const std::vector<const char*>& extensions);
+
 bool CreateShaderModulesFromFiles(const std::vector<std::string>& file_paths,
                                   VkDevice device,
                                   std::vector<VkShaderModule>* shader_modules);

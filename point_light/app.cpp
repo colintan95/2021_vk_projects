@@ -38,28 +38,6 @@ constexpr float kPi = glm::pi<float>();
 
 constexpr float kStrafeSpeed = 3.f;
 
-bool SupportsValidationLayers() {
-  uint32_t count;
-  vkEnumerateInstanceLayerProperties(&count, nullptr);
-
-  std::vector<VkLayerProperties> available_layers(count);
-  vkEnumerateInstanceLayerProperties(&count, available_layers.data());
-
-  for (const char* required_layer_name : kRequiredValidationLayers) {
-    bool found = false;
-    for (const auto& available_layer : available_layers) {
-      if (strcmp(available_layer.layerName, required_layer_name) == 0) {
-        found = true;
-        break;
-      }
-    }
-    if (!found)
-      return false;
-  }
-
-  return true;
-}
-
 std::vector<const char*> GetRequiredValidationLayers() {
   return std::vector<const char*>(
       kRequiredValidationLayers,
@@ -157,40 +135,16 @@ QueueIndices FindQueueIndices(VkPhysicalDevice physical_device,
   return indices;
 }
 
-bool SupportsRequiredDeviceExtensions(VkPhysicalDevice physical_device) {
-  uint32_t count;
-  vkEnumerateDeviceExtensionProperties(physical_device, nullptr, &count,
-                                       nullptr);
-
-  std::vector<VkExtensionProperties> available_extensions(count);
-  vkEnumerateDeviceExtensionProperties(physical_device, nullptr, &count,
-                                       available_extensions.data());
-
-  for (const char* required_extension_name :
-           GetRequiredDeviceExtensions()) {
-    bool found = false;
-    for (const auto& available_extension : available_extensions) {
-      if (strcmp(available_extension.extensionName,
-                 required_extension_name) == 0) {
-        found = true;
-        break;
-      }
-    }
-    if (!found)
-      return false;
-  }
-
-  return true;
-}
-
 bool IsPhysicalDeviceSuitable(VkPhysicalDevice physical_device,
                               VkSurfaceKHR surface) {
   QueueIndices queue_indices = FindQueueIndices(physical_device, surface);
   if (!FoundQueueIndices(queue_indices))
     return false;
 
-  if (!SupportsRequiredDeviceExtensions(physical_device))
+  if (!utils::vk::SupportsDeviceExtensions(physical_device,
+                                           GetRequiredDeviceExtensions())) {
     return false;
+  }
 
   uint32_t surface_formats_count;
   vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface,
@@ -462,7 +416,7 @@ void App::GlfwKeyCallback(GLFWwindow* window, int key, int scancode, int action,
 }
 
 bool App::InitInstanceAndSurface() {
-  if (!SupportsValidationLayers()) {
+  if (!utils::vk::SupportsValidationLayers(GetRequiredValidationLayers())) {
     std::cerr << "Does not support required validation layers." << std::endl;
     return false;
   }
