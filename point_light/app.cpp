@@ -5,7 +5,6 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <algorithm>
-#include <fstream>
 #include <iostream>
 #include <optional>
 #include <set>
@@ -15,6 +14,7 @@
 
 #include "utils/camera.h"
 #include "utils/model.h"
+#include "utils/vk.h"
 
 namespace {
 
@@ -314,49 +314,6 @@ VkFormat FindDepthFormat(VkPhysicalDevice physical_device) {
   return FindSupportedFormat(formats, VK_IMAGE_TILING_OPTIMAL,
                              VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT,
                              physical_device);
-}
-
-std::vector<char> LoadShaderFile(const std::string& path) {
-  std::vector<char> buffer;
-
-  std::ifstream strm(path, std::ios::ate | std::ios::binary);
-  if (!strm.is_open())
-    return buffer;
-
-  size_t file_size = strm.tellg();
-  buffer.resize(file_size);
-
-  strm.seekg(0);
-  strm.read(buffer.data(), file_size);
-  strm.close();
-
-  return buffer;
-}
-
-bool CreateShaderModulesFromFiles(const std::vector<std::string>& file_paths,
-                                  VkDevice device,
-                                  std::vector<VkShaderModule>* shader_modules) {
-  shader_modules->clear();
-
-  for (const std::string& path : file_paths) {
-    std::vector<char> data = LoadShaderFile(path);
-    if (data.empty())
-      return false;
-
-    VkShaderModuleCreateInfo shader_module_info{};
-    shader_module_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    shader_module_info.codeSize = data.size();
-    shader_module_info.pCode = reinterpret_cast<const uint32_t*>(data.data());
-
-    VkShaderModule shader_module;
-    if (vkCreateShaderModule(device, &shader_module_info, nullptr,
-                             &shader_module) != VK_SUCCESS) {
-      return false;
-    }
-
-    shader_modules->push_back(shader_module);
-  }
-  return true;
 }
 
 bool AllocateMemoryForResource(VkMemoryPropertyFlags mem_properties,
@@ -820,8 +777,8 @@ bool App::CreatePipeline() {
     "shader_vert.spv", "shader_frag.spv"
   };
   std::vector<VkShaderModule> shader_modules;
-  if (!CreateShaderModulesFromFiles(shader_file_paths, device_,
-                                    &shader_modules)) {
+  if (!utils::vk::CreateShaderModulesFromFiles(shader_file_paths, device_,
+                                               &shader_modules)) {
     std::cerr << "Could not create shader modules." << std::endl;
     return false;
   }
@@ -1216,8 +1173,8 @@ bool App::CreateShadowPipeline() {
     "shadow_vert.spv", "shadow_frag.spv"
   };
   std::vector<VkShaderModule> shader_modules;
-  if (!CreateShaderModulesFromFiles(shader_file_paths, device_,
-                                    &shader_modules)) {
+  if (!utils::vk::CreateShaderModulesFromFiles(shader_file_paths, device_,
+                                               &shader_modules)) {
     std::cerr << "Could not create shadow shader modules." << std::endl;
     return false;
   }
