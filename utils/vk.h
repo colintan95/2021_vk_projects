@@ -9,6 +9,17 @@
 namespace utils {
 namespace vk {
 
+VkResult CreateDebugUtilsMessenger(
+    VkInstance instance,
+    const VkDebugUtilsMessengerCreateInfoEXT* create_info,
+    const VkAllocationCallbacks* allocator,
+    VkDebugUtilsMessengerEXT* debug_messenger);
+
+void DestroyDebugUtilsMessenger(
+    VkInstance instance,
+    VkDebugUtilsMessengerEXT debug_messenger,
+    const VkAllocationCallbacks* allocator);
+
 bool SupportsValidationLayers(const std::vector<const char*>& layers);
 
 bool SupportsDeviceExtensions(VkPhysicalDevice physical_device,
