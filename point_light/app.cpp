@@ -217,34 +217,15 @@ VkExtent2D ChooseSwapChainExtent(const VkSurfaceCapabilitiesKHR& capabilities,
   }
 }
 
-VkFormat FindSupportedFormat(const std::vector<VkFormat>& formats,
-                             VkImageTiling tiling,
-                             VkFormatFeatureFlags features,
-                             VkPhysicalDevice physical_device) {
-  for (const auto& format : formats) {
-    VkFormatProperties properties;
-    vkGetPhysicalDeviceFormatProperties(physical_device, format, &properties);
-
-    if (tiling == VK_IMAGE_TILING_LINEAR &&
-        (properties.linearTilingFeatures & features) == features) {
-      return format;
-    } else if (tiling == VK_IMAGE_TILING_OPTIMAL &&
-               (properties.optimalTilingFeatures & features) == features) {
-      return format;
-    }
-  }
-  return VK_FORMAT_UNDEFINED;
-}
-
 VkFormat FindDepthFormat(VkPhysicalDevice physical_device) {
   std::vector<VkFormat> formats = {
     VK_FORMAT_D32_SFLOAT,
     VK_FORMAT_D32_SFLOAT_S8_UINT,
     VK_FORMAT_D24_UNORM_S8_UINT
   };
-  return FindSupportedFormat(formats, VK_IMAGE_TILING_OPTIMAL,
-                             VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT,
-                             physical_device);
+  return utils::vk::FindSupportedFormat(
+      formats, VK_IMAGE_TILING_OPTIMAL,
+      VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT, physical_device);
 }
 
 }  // namespace

@@ -29,6 +29,11 @@ bool CreateShaderModulesFromFiles(const std::vector<std::string>& file_paths,
                                   VkDevice device,
                                   std::vector<VkShaderModule>* shader_modules);
 
+VkFormat FindSupportedFormat(const std::vector<VkFormat>& formats,
+                             VkImageTiling tiling,
+                             VkFormatFeatureFlags features,
+                             VkPhysicalDevice physical_device);
+
 bool CreateImage(const VkImageCreateInfo& image_info,
                  VkMemoryPropertyFlags mem_properties,
                  VkPhysicalDevice physical_device, VkDevice device,

@@ -156,6 +156,25 @@ bool CreateShaderModulesFromFiles(const std::vector<std::string>& file_paths,
   return true;
 }
 
+VkFormat FindSupportedFormat(const std::vector<VkFormat>& formats,
+                             VkImageTiling tiling,
+                             VkFormatFeatureFlags features,
+                             VkPhysicalDevice physical_device) {
+  for (const auto& format : formats) {
+    VkFormatProperties properties;
+    vkGetPhysicalDeviceFormatProperties(physical_device, format, &properties);
+
+    if (tiling == VK_IMAGE_TILING_LINEAR &&
+        (properties.linearTilingFeatures & features) == features) {
+      return format;
+    } else if (tiling == VK_IMAGE_TILING_OPTIMAL &&
+               (properties.optimalTilingFeatures & features) == features) {
+      return format;
+    }
+  }
+  return VK_FORMAT_UNDEFINED;
+}
+
 bool CreateImage(const VkImageCreateInfo& image_info,
                  VkMemoryPropertyFlags mem_properties,
                  VkPhysicalDevice physical_device, VkDevice device,
