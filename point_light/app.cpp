@@ -270,72 +270,6 @@ VkFormat FindDepthFormat(VkPhysicalDevice physical_device) {
                              physical_device);
 }
 
-bool AllocateMemoryForResource(VkMemoryPropertyFlags mem_properties,
-                               VkMemoryRequirements mem_requirements,
-                               VkPhysicalDevice physical_device,
-                               VkDevice device, VkDeviceMemory& memory) {
-  VkPhysicalDeviceMemoryProperties phys_device_mem_props;
-  vkGetPhysicalDeviceMemoryProperties(physical_device, &phys_device_mem_props);
-
-  std::optional<uint32_t> memory_type_index;
-  for (int i = 0; i < phys_device_mem_props.memoryTypeCount; i++) {
-    if ((mem_requirements.memoryTypeBits & (1 << i)) &&
-        (phys_device_mem_props.memoryTypes[i].propertyFlags & mem_properties)
-             == mem_properties) {
-      memory_type_index = i;
-      break;
-    }
-  }
-  if (!memory_type_index.has_value())
-    return false;
-
-  VkMemoryAllocateInfo mem_alloc_info{};
-  mem_alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-  mem_alloc_info.allocationSize = mem_requirements.size;
-  mem_alloc_info.memoryTypeIndex = memory_type_index.value();
-
-  if (vkAllocateMemory(device, &mem_alloc_info, nullptr, &memory) != VK_SUCCESS)
-    return false;
-
-  return true;
-}
-
-bool CreateImage(const VkImageCreateInfo& image_info,
-                 VkMemoryPropertyFlags mem_properties,
-                 VkPhysicalDevice physical_device, VkDevice device,
-                 VkImage& image, VkDeviceMemory& memory) {
-  if (vkCreateImage(device, &image_info, nullptr, &image) != VK_SUCCESS)
-    return false;
-
-  VkMemoryRequirements mem_requirements;
-  vkGetImageMemoryRequirements(device, image, &mem_requirements);
-
-  if (!AllocateMemoryForResource(mem_properties, mem_requirements,
-                                 physical_device, device, memory))
-    return false;
-  vkBindImageMemory(device, image, memory, 0);
-
-  return true;
-}
-
-bool CreateBuffer(const VkBufferCreateInfo& buffer_info,
-                  VkMemoryPropertyFlags mem_properties,
-                  VkPhysicalDevice physical_device, VkDevice device,
-                  VkBuffer& buffer, VkDeviceMemory& memory) {
-  if (vkCreateBuffer(device, &buffer_info, nullptr, &buffer) != VK_SUCCESS)
-    return false;
-
-  VkMemoryRequirements mem_requirements;
-  vkGetBufferMemoryRequirements(device, buffer, &mem_requirements);
-
- if (!AllocateMemoryForResource(mem_properties, mem_requirements,
-                                 physical_device, device, memory))
-    return false;
-  vkBindBufferMemory(device, buffer, memory, 0);
-
-  return true;
-}
-
 }  // namespace
 
 bool App::Init() {
@@ -964,9 +898,10 @@ bool App::CreateFramebuffers() {
   color_image_info.samples = msaa_sample_count_;
   color_image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-  if (!CreateImage(color_image_info, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                   physical_device_, device_, color_image_,
-                   color_image_memory_)) {
+  if (!utils::vk::CreateImage(color_image_info,
+                              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                              physical_device_, device_, color_image_,
+                              color_image_memory_)) {
     std::cerr << "Could not create color image." << std::endl;
     return false;
   }
@@ -1010,9 +945,10 @@ bool App::CreateFramebuffers() {
   depth_image_info.samples = msaa_sample_count_;
   depth_image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-  if (!CreateImage(depth_image_info, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                   physical_device_, device_, depth_image_,
-                   depth_image_memory_)) {
+  if (!utils::vk::CreateImage(depth_image_info,
+                              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                              physical_device_, device_, depth_image_,
+                              depth_image_memory_)) {
     std::cerr << "Could not create depth image." << std::endl;
     return false;
   }
@@ -1307,9 +1243,10 @@ bool App::CreateShadowFramebuffers() {
     shadow_tex_info.samples = VK_SAMPLE_COUNT_1_BIT;
     shadow_tex_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    if (!CreateImage(shadow_tex_info, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                    physical_device_, device_, frame.shadow_texture,
-                    frame.shadow_texture_memory)) {
+    if (!utils::vk::CreateImage(shadow_tex_info,
+                                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                                physical_device_, device_, frame.shadow_texture,
+                                frame.shadow_texture_memory)) {
       std::cerr << "Could not create shadow image." << std::endl;
       return false;
     }
@@ -1499,11 +1436,11 @@ bool App::CreateDescriptorSets() {
     vert_ubo_buffer_info.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
     vert_ubo_buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    CreateBuffer(vert_ubo_buffer_info,
-                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                     VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                 physical_device_, device_, vert_ubo_buffers_[i],
-                 vert_ubo_buffers_memory_[i]);
+    utils::vk::CreateBuffer(vert_ubo_buffer_info,
+                            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                            physical_device_, device_, vert_ubo_buffers_[i],
+                            vert_ubo_buffers_memory_[i]);
   }
 
   struct Material {
@@ -1542,11 +1479,11 @@ bool App::CreateDescriptorSets() {
     vert_ubo_buffer_info.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
     vert_ubo_buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    CreateBuffer(vert_ubo_buffer_info,
-                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                     VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-                 physical_device_, device_, frag_ubo_buffers_[i],
-                 frag_ubo_buffers_memory_[i]);
+    utils::vk::CreateBuffer(vert_ubo_buffer_info,
+                            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                            physical_device_, device_, frag_ubo_buffers_[i],
+                            frag_ubo_buffers_memory_[i]);
 
     FragmentShaderUbo* ubo_ptr;
     vkMapMemory(device_, frag_ubo_buffers_memory_[i], 0, frag_ubo_buffer_size,
@@ -1660,9 +1597,9 @@ bool App::CreateVertexBuffers() {
       VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
   pos_buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-  CreateBuffer(pos_buffer_info, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-               physical_device_, device_, position_buffer_,
-               position_buffer_memory_);
+  utils::vk::CreateBuffer(pos_buffer_info, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                          physical_device_, device_, position_buffer_,
+                          position_buffer_memory_);
 
   UploadDataToBuffer(model_.positions.data(), pos_buffer_size,
                      position_buffer_);
@@ -1677,9 +1614,9 @@ bool App::CreateVertexBuffers() {
       VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
   normal_buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-  CreateBuffer(normal_buffer_info, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-               physical_device_, device_, normal_buffer_,
-               normal_buffer_memory_);
+  utils::vk::CreateBuffer(normal_buffer_info,
+                          VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, physical_device_,
+                          device_, normal_buffer_, normal_buffer_memory_);
 
   UploadDataToBuffer(model_.normals.data(), normal_buffer_size,
                      normal_buffer_);
@@ -1694,9 +1631,10 @@ bool App::CreateVertexBuffers() {
       VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
   mtl_idx_buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-  CreateBuffer(mtl_idx_buffer_info, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-               physical_device_, device_, material_idx_buffer_,
-               material_idx_buffer_memory_);
+  utils::vk::CreateBuffer(mtl_idx_buffer_info,
+                          VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, physical_device_,
+                          device_, material_idx_buffer_,
+                          material_idx_buffer_memory_);
 
   UploadDataToBuffer(model_.material_indices.data(), mtl_idx_buffer_size,
                      material_idx_buffer_);
@@ -1711,8 +1649,9 @@ bool App::CreateVertexBuffers() {
       VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
   index_buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-  CreateBuffer(index_buffer_info, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-               physical_device_, device_, index_buffer_, index_buffer_memory_);
+  utils::vk::CreateBuffer(index_buffer_info,
+                          VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, physical_device_,
+                          device_, index_buffer_, index_buffer_memory_);
 
   UploadDataToBuffer(model_.index_buffer.data(), index_buffer_size,
                      index_buffer_);
@@ -1745,11 +1684,11 @@ void App::UploadDataToBuffer(void* data, VkDeviceSize size, VkBuffer buffer) {
   staging_buffer_info.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
   staging_buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-  CreateBuffer(staging_buffer_info,
-               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                   VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-               physical_device_, device_, staging_buffer,
-               staging_buffer_memory);
+  utils::vk::CreateBuffer(staging_buffer_info,
+                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                              VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                          physical_device_, device_, staging_buffer,
+                          staging_buffer_memory);
 
   void* staging_ptr;
   vkMapMemory(device_, staging_buffer_memory, 0, size, 0, &staging_ptr);

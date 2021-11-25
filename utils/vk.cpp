@@ -3,6 +3,7 @@
 #include <vulkan/vulkan.h>
 
 #include <fstream>
+#include <optional>
 #include <vector>
 
 namespace utils {
@@ -25,6 +26,36 @@ std::vector<char> LoadShaderFile(const std::string& path) {
   strm.close();
 
   return buffer;
+}
+
+bool AllocateMemoryForResource(VkMemoryPropertyFlags mem_properties,
+                               VkMemoryRequirements mem_requirements,
+                               VkPhysicalDevice physical_device,
+                               VkDevice device, VkDeviceMemory& memory) {
+  VkPhysicalDeviceMemoryProperties phys_device_mem_props;
+  vkGetPhysicalDeviceMemoryProperties(physical_device, &phys_device_mem_props);
+
+  std::optional<uint32_t> memory_type_index;
+  for (int i = 0; i < phys_device_mem_props.memoryTypeCount; i++) {
+    if ((mem_requirements.memoryTypeBits & (1 << i)) &&
+        (phys_device_mem_props.memoryTypes[i].propertyFlags & mem_properties)
+             == mem_properties) {
+      memory_type_index = i;
+      break;
+    }
+  }
+  if (!memory_type_index.has_value())
+    return false;
+
+  VkMemoryAllocateInfo mem_alloc_info{};
+  mem_alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+  mem_alloc_info.allocationSize = mem_requirements.size;
+  mem_alloc_info.memoryTypeIndex = memory_type_index.value();
+
+  if (vkAllocateMemory(device, &mem_alloc_info, nullptr, &memory) != VK_SUCCESS)
+    return false;
+
+  return true;
 }
 
 }  // namespace
@@ -99,6 +130,42 @@ bool CreateShaderModulesFromFiles(const std::vector<std::string>& file_paths,
 
     shader_modules->push_back(shader_module);
   }
+  return true;
+}
+
+bool CreateImage(const VkImageCreateInfo& image_info,
+                 VkMemoryPropertyFlags mem_properties,
+                 VkPhysicalDevice physical_device, VkDevice device,
+                 VkImage& image, VkDeviceMemory& memory) {
+  if (vkCreateImage(device, &image_info, nullptr, &image) != VK_SUCCESS)
+    return false;
+
+  VkMemoryRequirements mem_requirements;
+  vkGetImageMemoryRequirements(device, image, &mem_requirements);
+
+  if (!AllocateMemoryForResource(mem_properties, mem_requirements,
+                                 physical_device, device, memory))
+    return false;
+  vkBindImageMemory(device, image, memory, 0);
+
+  return true;
+}
+
+bool CreateBuffer(const VkBufferCreateInfo& buffer_info,
+                  VkMemoryPropertyFlags mem_properties,
+                  VkPhysicalDevice physical_device, VkDevice device,
+                  VkBuffer& buffer, VkDeviceMemory& memory) {
+  if (vkCreateBuffer(device, &buffer_info, nullptr, &buffer) != VK_SUCCESS)
+    return false;
+
+  VkMemoryRequirements mem_requirements;
+  vkGetBufferMemoryRequirements(device, buffer, &mem_requirements);
+
+ if (!AllocateMemoryForResource(mem_properties, mem_requirements,
+                                 physical_device, device, memory))
+    return false;
+  vkBindBufferMemory(device, buffer, memory, 0);
+
   return true;
 }
 
